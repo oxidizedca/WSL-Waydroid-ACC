@@ -1,0 +1,19 @@
+libEGL warning: failed to open /dev/dri/renderD128: Permission denied
+
+libEGL warning: failed to open /dev/dri/card0: Permission denied
+
+Dropped Escape call with ulEscapeCode : 0x03007703
+renderer=D3D12 (AMD Radeon RX 7900 XTX)
+frame,enabled,create_ns,submit_ns,handle_ns,spare
+0,0,592659,3445024,88700,0
+1,0,658999,2166837,81230,0
+2,0,512209,2287627,86830,0
+3,1,841654,2231912,84860,0
+4,1,19430,2532456,930,1
+5,1,20400,2291556,960,1
+6,1,89440,2312566,940,1
+7,1,19490,1728947,660,1
+8,1,37790,1246738,750,1
+9,1,918844,957763,84620,0
+10,1,37400,1231288,750,1
+11,1,37850,890883,710,1

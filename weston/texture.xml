@@ -1,0 +1,43 @@
+<protocol name="waydroid_d3d12">
+  <interface name="wd_texture_manager_v1" version="3">
+    <description summary="import immutable Waydroid graphics buffers">
+      On success replace the next attach of the named carrier by this GPU buffer.
+      All surface state, z order, damage and commit remain on the HWC connection.
+      The producer completion event has already signalled before offer.
+    </description>
+    <request name="offer">
+      <arg name="buffer" type="new_id" interface="wl_buffer"/>
+      <arg name="carrier" type="object" interface="wl_buffer"/>
+      <arg name="texture" type="fd"/>
+      <arg name="opaque" type="uint"/>
+      <arg name="serial" type="uint"/>
+    </request>
+    <request name="finish"/>
+    <request name="reuse">
+      <arg name="buffer" type="object" interface="wl_buffer"/>
+      <arg name="carrier" type="object" interface="wl_buffer"/>
+    </request>
+    <request name="retire"><arg name="buffer" type="object" interface="wl_buffer"/></request>
+    <event name="result"><arg name="serial" type="uint"/><arg name="accepted" type="uint"/></event>
+    <request name="prepare_client" since="2">
+      <description summary="import a physical CLIENT texture before the HWC set">
+        The new buffer is held independently of a carrier. Reuse attaches it
+        to the matching carrier when HWC submits the corresponding layer.
+      </description>
+      <arg name="buffer" type="new_id" interface="wl_buffer"/>
+      <arg name="texture" type="fd"/>
+      <arg name="serial" type="uint"/>
+    </request>
+    <request name="prepare_target" since="3">
+      <arg name="buffer" type="new_id" interface="wl_buffer"/>
+      <arg name="texture" type="fd"/>
+      <arg name="width" type="uint"/>
+      <arg name="height" type="uint"/>
+      <arg name="serial" type="uint"/>
+    </request>
+    <request name="hold_carrier" since="3">
+      <description summary="keep the current surface content if recovery failed"/>
+      <arg name="carrier" type="object" interface="wl_buffer"/>
+    </request>
+  </interface>
+</protocol>

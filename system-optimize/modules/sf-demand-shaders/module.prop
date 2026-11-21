@@ -1,0 +1,6 @@
+id=waydroid_acc_sf_demand_shaders
+name=Waydroid ACC - SurfaceFlinger on-demand shaders
+version=0.1-alpha
+versionCode=1
+author=WSL-Waydroid-ACC
+description=Skip boot-time shader priming on the tested Waydroid SurfaceFlinger. Shaders are still compiled when needed.

@@ -1,0 +1,7 @@
+run,sample,bound,attach,GET,nested,before_import,before_fresh,before_evict,visibility,before_import_called,before_fresh_called,before_evict_called,visibility_called
+A1,2408,1533,875,1013,27,0,0,0,0,0,0,0,0
+B1,2417,1535,882,1021,58,38,5,2,13,954,19,38,148
+B2,2445,1554,891,1033,83,49,5,5,24,961,22,37,176
+A2,2405,1536,868,1029,28,0,0,0,0,0,0,0,0
+B3,2448,1556,892,1034,69,44,7,3,15,960,22,36,177
+A3,2414,1538,876,1018,31,0,0,0,0,0,0,0,0

@@ -1,0 +1,15 @@
+name,pid,Rss,Pss,Shared_Clean,Private_Dirty
+/vendor/bin/hw/android.hardware.graphics.composer@2.1-service,274678,21544,1546,21544,0
+/system/bin/surfaceflinger,274727,21732,1563,21732,0
+system_server,274902,21604,1551,21604,0
+com.android.systemui,275229,36912,3102,36912,0
+com.android.settings,275322,21732,1563,21732,0
+com.google.android.gms,275487,36976,3115,36976,0
+com.android.launcher3,275520,36976,3115,36976,0
+com.google.android.googlequicksearchbox:search,275979,36240,3008,36240,0
+com.android.vending,276118,35376,2916,35376,0
+com.google.android.gms.unstable,276457,36496,3040,36496,0
+com.nexon.bluearchive,276980,36860,3106,36848,0
+org.lineageos.jelly,278421,36912,3102,36912,0
+com.android.calculator2,278650,36976,3115,36976,0
+com.android.vending:quick_launch,278798,36976,3115,36976,0

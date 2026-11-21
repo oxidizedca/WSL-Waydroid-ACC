@@ -1,0 +1,11 @@
+process,pid,libs,scratch_resident_kib,idle_write_side_kib,surface_last_resident_kib
+android.hardware.graphics.composer@2.1-service,573849,14,0,0,0
+surfaceflinger,573902,14,0,0,0
+system_server,574037,14,0,0,0
+com.android.systemui,574343,14,31216,16628,0
+com.google.android.gms,574592,14,0,0,0
+com.google.android.googlequicksearchbox:search,575081,14,64800,64800,0
+com.android.vending,575219,14,0,0,0
+com.google.android.gms.unstable,575525,14,0,0,0
+com.android.launcher3,590048,14,24,12,0
+com.android.settings,591367,14,0,0,0

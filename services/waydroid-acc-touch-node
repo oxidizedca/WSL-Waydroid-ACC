@@ -1,0 +1,70 @@
+#!/usr/bin/python3
+"""Publish exactly the evdev node created by virtual-touch in this container's /dev."""
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import subprocess
+import sys
+import tempfile
+import time
+
+STATE = Path("/run/waydroid-acc-touch")
+FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+
+def event_device():
+    for _ in range(50):
+        try:
+            name = (STATE / "sysname").read_text().strip()
+        except FileNotFoundError:
+            name = ""
+        if re.fullmatch(r"input[0-9]+", name):
+            for event in (Path("/sys/class/input") / name).glob("event*"):
+                if re.fullmatch(r"event[0-9]+", event.name):
+                    major, minor = map(int, (event / "dev").read_text().split(":"))
+                    return event.name, os.makedev(major, minor)
+        time.sleep(.1)
+    raise RuntimeError("no evdev node for the new uinput device")
+
+def identity(st):
+    return [st.st_dev, st.st_ino, st.st_rdev]
+
+def main(action):
+    record = STATE / "node.json"
+    if action == "detach" and not record.exists():
+        return
+    # Resolve the guest root once. Never follow guest-owned 'dev'/'input' symlinks.
+    if action == "attach":
+        pid = subprocess.check_output(["lxc-info", "-P", "/var/lib/waydroid/lxc",
+                                       "-n", "waydroid", "-pH"], text=True).strip()
+    else:
+        pid, name, expected = json.loads(record.read_text())
+    if not re.fullmatch(r"[1-9][0-9]*", pid):
+        raise RuntimeError("no running Waydroid container")
+    root = os.open(f"/proc/{pid}/root", os.O_RDONLY | os.O_DIRECTORY)
+    dev = os.open("dev", FLAGS, dir_fd=root)
+    dst = os.open("input", FLAGS, dir_fd=dev)
+    if action == "attach":
+        name, device = event_device()
+        # EventHub opens on IN_CREATE. Prepare the final uid/mode outside its
+        # watched directory, then link without replacing any existing entry.
+        with tempfile.TemporaryDirectory(prefix=".acc-touch-", dir=f"/proc/self/fd/{dev}") as stage:
+            node = os.path.join(stage, "touch")
+            os.mknod(node, stat.S_IFCHR | 0o600, device)
+            os.chown(node, 0, 1004)  # AID_INPUT
+            os.chmod(node, 0o660)
+            record.write_text(json.dumps([pid, name, identity(os.lstat(node))]))
+            os.link(node, name, dst_dir_fd=dst)
+        print(f"Published /dev/input/{name} (root:input 0660)", flush=True)
+    elif identity(os.stat(name, dir_fd=dst, follow_symlinks=False)) == expected:
+        os.unlink(name, dir_fd=dst)
+
+if __name__ == "__main__":
+    if sys.argv[1:] not in (["attach"], ["detach"]):
+        sys.exit("usage: waydroid-acc-touch-node attach|detach")
+    try:
+        main(sys.argv[1])
+    except FileNotFoundError:
+        if sys.argv[1] != "detach":
+            raise

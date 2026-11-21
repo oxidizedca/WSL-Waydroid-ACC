@@ -1,0 +1,12 @@
+#!/system/bin/sh
+# The platform still selects the display, composes the frame and enforces capture permissions.
+if [ "$#" != 1 ] || [ "$1" != -p ]; then exec /system/bin/screencap "$@"; fi
+set -o pipefail
+if [ -x /system_ext/bin/waydroid-acc-png ]; then
+    /system/bin/screencap | /system_ext/bin/waydroid-acc-png
+    rc=$?
+    [ "$rc" = 75 ] || exit "$rc"
+fi
+# Unsupported pixel format/color/alpha/size: no PNG prefix has been written.
+# Re-capture with Android's encoder; preserve the previous batched output.
+/system/bin/screencap -p | /system/bin/toybox dd ibs=8k obs=256k status=none

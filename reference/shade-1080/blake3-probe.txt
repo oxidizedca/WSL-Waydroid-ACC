@@ -1,0 +1,5 @@
+import 617 508.8 ms total 0.81 1.1 1.51
+job 1279 1414.3 ms total 0.08 2.61 13.42
+hash 112 33.5 ms total 0.03 0.93 0.98
+hash1080 37 31.0 ms total 0.81 0.97 0.98
+mirror 45 136.2 ms total 2.84 6.61 7.1

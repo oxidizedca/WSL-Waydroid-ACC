@@ -1,0 +1,17 @@
+[Unit]
+Description=Waydroid layer input texture broker
+After=local-fs.target
+[Service]
+NotifyAccess=main
+FileDescriptorStoreMax=80
+User=curioxygen
+Group=curioxygen
+Environment=LD_LIBRARY_PATH=/usr/local/lib/wsl-waydroid-acc/current/host/egl:/usr/lib/wsl/lib
+Environment=GALLIUM_DRIVER=d3d12
+Environment=MESA_LOADER_DRIVER_OVERRIDE=d3d12
+Environment=LIBGL_DRIVERS_PATH=/usr/local/lib/wsl-waydroid-acc/current/host/gallium/targets/dri
+ExecStart=/usr/local/lib/wsl-waydroid-acc/current/bin/input-broker /home/curioxygen/.local/share/waydroid/data/local/tmp/waydroid-acc/input /home/curioxygen/.local/share/waydroid/data/local/tmp/../../system/packages.list
+Restart=on-failure
+RestartSec=0.2
+[Install]
+WantedBy=multi-user.target

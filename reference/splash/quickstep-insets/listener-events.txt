@@ -1,0 +1,14 @@
+            bash-7182    [001] ...1. 10063.524216: tracing_mark_write: before
+ droid.launcher3-7223    [008] ..... 10064.818858: binder_transaction: transaction=5776841 dest_node=5776448 dest_proc=23853 dest_thread=0 reply=0 flags=0x11 code=0x5
+ droid.launcher3-7223    [008] ..... 10064.818861: binder_transaction_node_to_ref: transaction=5776841 node=5776842 ==> dest_ref=5776844 dest_desc=205
+    wmshell.main-23909   [001] ..... 10064.819139: binder_transaction: transaction=5776856 dest_node=5776842 dest_proc=7223 dest_thread=0 reply=0 flags=0x11 code=0x1
+    wmshell.main-23909   [004] ..... 10065.040873: binder_transaction: transaction=5777379 dest_node=5776842 dest_proc=7223 dest_thread=0 reply=0 flags=0x11 code=0x1
+            bash-7182    [000] ...1. 10069.439774: tracing_mark_write: launch_R
+    wmshell.main-23909   [008] ..... 10070.208170: binder_transaction: transaction=5779093 dest_node=5776842 dest_proc=7223 dest_thread=0 reply=0 flags=0x11 code=0x1
+    wmshell.main-23909   [000] ..... 10076.495257: binder_transaction: transaction=5786084 dest_node=5776842 dest_proc=7223 dest_thread=0 reply=0 flags=0x11 code=0x1
+            bash-7182    [001] ...1. 10077.119998: tracing_mark_write: shade
+    wmshell.main-23909   [000] ..... 10077.279723: binder_transaction: transaction=5787974 dest_node=5776842 dest_proc=7223 dest_thread=0 reply=0 flags=0x11 code=0x2
+    wmshell.main-23909   [000] ..... 10078.216566: binder_transaction: transaction=5789276 dest_node=5776842 dest_proc=7223 dest_thread=0 reply=0 flags=0x11 code=0x2
+            bash-7182    [001] ...1. 10079.988198: tracing_mark_write: launch_S
+    wmshell.main-23909   [012] ..... 10080.700946: binder_transaction: transaction=5790933 dest_node=5776842 dest_proc=7223 dest_thread=0 reply=0 flags=0x11 code=0x1
+            bash-7182    [002] ...1. 10086.913670: tracing_mark_write: end

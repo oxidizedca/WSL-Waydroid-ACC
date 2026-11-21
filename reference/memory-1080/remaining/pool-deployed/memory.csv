@@ -1,0 +1,7 @@
+version,checkpoint,processes,search_slots,search_mib,systemui_mib,all_scratch_mib,work_mib,anon_mib,swap_mib
+A,desktop,10,1,7.91,14.3,45.96,3160.5,1958.2,0.0
+A,post-search,11,8,63.28,14.31,101.35,4241.1,2132.0,0.0
+A,post-shade,12,8,63.28,47.71,134.75,4185.7,2242.9,0.0
+B,desktop,10,1,7.91,14.3,38.06,2747.9,1938.2,0.0
+B,post-search,11,1,7.91,14.31,38.07,3692.6,2048.1,0.0
+B,post-shade,12,1,7.91,22.22,45.98,3631.3,2152.9,0.0

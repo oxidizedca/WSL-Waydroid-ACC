@@ -1,0 +1,15 @@
+[options]
+platforms = 
+egl-native-platform = surfaceless
+gallium-drivers = d3d12
+vulkan-drivers = 
+glx = disabled
+gbm = disabled
+llvm = disabled
+buildtype = release
+gallium-va = disabled
+video-codecs = 
+gallium-rusticl = false
+
+[properties]
+

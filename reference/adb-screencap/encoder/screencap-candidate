@@ -1,0 +1,11 @@
+#!/system/bin/sh
+if [ "$#" != 1 ] || [ "$1" != -p ]; then exec /system/bin/screencap "$@"; fi
+set -o pipefail
+helper=${0%/*}/fastpng
+/system/bin/screencap | "$helper"
+rc=$?
+if [ "$rc" = 75 ]; then
+    /system/bin/screencap -p | /system/bin/toybox dd ibs=8k obs=256k status=none
+    exit $?
+fi
+exit "$rc"

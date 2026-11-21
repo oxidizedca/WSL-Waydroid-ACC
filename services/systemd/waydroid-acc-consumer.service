@@ -1,0 +1,15 @@
+[Unit]
+Description=Waydroid shared texture consumer
+After=local-fs.target
+[Service]
+User=curioxygen
+Group=curioxygen
+Environment=LD_LIBRARY_PATH=/usr/local/lib/wsl-waydroid-acc/current/host/egl:/usr/lib/wsl/lib
+Environment=GALLIUM_DRIVER=d3d12
+Environment=MESA_LOADER_DRIVER_OVERRIDE=d3d12
+Environment=LIBGL_DRIVERS_PATH=/usr/local/lib/wsl-waydroid-acc/current/host/gallium/targets/dri
+ExecStart=/usr/local/lib/wsl-waydroid-acc/current/bin/texture-consumer /home/curioxygen/.local/share/waydroid/data/local/tmp/waydroid-acc/frames 1000 10095 10088
+Restart=on-failure
+RestartSec=2
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+#!/system/bin/sh
+# Keep Android's own capture, PNG encoder, color handling and permission checks.
+# Only coalesce the small PNG writes that stall legacy ADB shell transports.
+if [ "$#" = 1 ] && [ "$1" = -p ]; then
+    set -o pipefail
+    /system/bin/screencap -p | /system/bin/toybox dd ibs=8k obs=256k status=none
+else
+    exec /system/bin/screencap "$@"
+fi

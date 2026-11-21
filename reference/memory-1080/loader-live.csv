@@ -1,0 +1,9 @@
+host_pid,name,umd_pss_KiB,umd_private_dirty_KiB
+91808,system_server,173836,173836
+92131,com.android.systemui,173844,173844
+92231,com.android.settings,173836,173836
+92408,com.google.android.gms,173844,173844
+92414,com.android.launcher3,173844,173844
+92887,com.google.android.googlequicksearchbox:search,173844,173844
+92999,com.android.vending,173844,173844
+94731,com.android.calculator2,173844,173844

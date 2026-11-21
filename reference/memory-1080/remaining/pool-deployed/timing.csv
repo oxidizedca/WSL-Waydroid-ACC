@@ -1,0 +1,9 @@
+version,action,frames,p50_ms,p95_ms,over_budget
+A,search,450,10.46,22.59,91
+A,home,430,7.44,23.64,97
+A,expand-notifications,464,9.09,16.75,24
+A,collapse,473,8.74,14.21,2
+B,search,459,10.0,21.66,94
+B,home,434,7.25,23.51,84
+B,expand-notifications,455,8.87,15.94,15
+B,collapse,468,8.67,13.53,0

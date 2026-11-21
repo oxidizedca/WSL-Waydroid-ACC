@@ -1,0 +1,48 @@
+[2/5] 重启容器
+[3/5] 重建网桥
+[4/5] 启动 session（WAYLAND_DISPLAY=wd-weston）
+      boot_completed=1
+[5/5] 设属性（padding 归零）
+
+=== 状态 ===
+boot=1
+display=1920
+1048
+sf=482
+sysui=735
+launcher=1038
+
+打开界面： waydroid show-full-ui
+Masked sources verified: waydroid-stage4-input.service pid=649665
+Masked sources verified: waydroid-stage4-t2.service pid=649645
+Masked sources verified: waydroid-stage4-weston.service pid=649663
+Starting: Intent { act=android.settings.SETTINGS }
+Status: ok
+LaunchState: WARM
+Activity: com.android.settings/.Settings$NetworkDashboardActivity
+TotalTime: 612
+WaitTime: 614
+Complete
+Starting: Intent { cmp=com.android.calculator2/.Calculator }
+Status: ok
+LaunchState: COLD
+Activity: com.android.calculator2/.Calculator
+TotalTime: 959
+WaitTime: 960
+Complete
+Repository-isolated restart passed. Restoring normal service namespaces.
+[2/5] 重启容器
+[3/5] 重建网桥
+[4/5] 启动 session（WAYLAND_DISPLAY=wd-weston）
+      boot_completed=1
+[5/5] 设属性（padding 归零）
+
+=== 状态 ===
+boot=1
+display=1920
+1048
+sf=274
+sysui=692
+launcher=1021
+
+打开界面： waydroid show-full-ui

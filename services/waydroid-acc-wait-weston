@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# systemd has already started the nested compositor. Wait until its Wayland
+# socket and our renderer are ready before allowing the Android container in.
+renderer=$(readlink -e /usr/local/lib/wsl-waydroid-acc/current/weston/gl-renderer.so)
+for ((i=0;i<100;i++)); do
+    pid=$(systemctl show waydroid-acc-weston.service -p MainPID --value)
+    if [[ $pid != 0 && -S /mnt/wslg/runtime-dir/wd-weston ]] &&
+        grep -qF "$renderer" "/proc/$pid/maps"; then exit 0; fi
+    sleep .1
+done
+echo "Nested Weston did not load $renderer and create wd-weston" >&2
+exit 1

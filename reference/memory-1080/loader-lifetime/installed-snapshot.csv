@@ -1,0 +1,8 @@
+cmd,pss_kib,anon_kib,rss_kib,vm_kib,pte_kib,whole_views,views_kib,view_pss_kib,libfds,amd_rx,gallium_rx
+android.hardware.graphics.composer@2.1-service,40314,35720,71248,11421180,820,14,215160,630,14,1,0
+surfaceflinger,47441,37132,82764,11623884,1444,14,215160,630,14,1,0
+system_server,302873,230739,497592,18890324,3056,14,215160,630,14,1,0
+com.android.systemui,165126,95202,340732,17292092,2260,14,215160,630,14,1,0
+com.google.android.gms,273709,141736,470860,17725440,2464,14,215160,630,14,1,0
+com.android.launcher3,145040,96829,330512,17243256,2272,14,215160,630,14,1,0
+com.google.android.googlequicksearchbox:search,226583,155360,424600,18261276,2388,14,215160,630,14,1,0

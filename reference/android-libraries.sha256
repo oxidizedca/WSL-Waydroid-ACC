@@ -1,0 +1,17 @@
+b3d78d409a4dbbe8612551fc0c0d746d3e58d7997ee7eba78ce1064d77cfa8c3  ./data/local/tmp/libd3d12.so
+a4104a2022932d8e6c714f103ebd89db1c5bdbf36fe92151c88d3d93d4e3894d  ./data/local/tmp/libd3d12core.so
+83d1671a839bcf71709349e77cd68341515df2e63080765618876996a0f4190c  ./data/local/tmp/libdxcore.so
+5abc0cb4265968bff7a8f06a62d37a395690473294745b45ab439b4a8c934002  ./data/local/tmp/mesa/libEGL.so.1.0.0
+c8be7d3863453898666977c12b0b392014a1c728d84215d885d574882d6e7b89  ./data/local/tmp/mesa/libdrm.so.2
+2e5f66e2784c2746775567ff9916f6e7503182a8f1f2deb8ca729dfc1463849f  ./data/local/tmp/mesa/libexpat.so.1
+e3493819cd3ace11dbe4815cd12a2717432e09051ee11a10b8b13a48ccf4c448  ./data/local/tmp/mesa/libgallium-26.0.8.so
+060eeb79531d435306665fd78329d8a9dd579f95876c5960bb67937825362a80  ./data/local/tmp/mesa/libzstd.so.1
+33cae131c20fd1bfb74844988f53e5363b101fb26016c14e03515201d9afad98  ./data/local/tmp/wsl_drivers/amdxc64.so
+5385f0436ac2e284ba8c5fb1488874057c29c04be72dea32add832694f381e28  ./data/local/tmp/wsl_drivers/libcrypto.so.3
+9d339ecb409578d6a5d587e6c537a8f9589b8a13fefba30d167433a4b5758bee  ./data/local/tmp/wsl_drivers/libgcc_s.so.1
+63b47f444efa588e291e9b650a5ba2ab02f856356f2d50f13a2e477db9119e09  ./data/local/tmp/wsl_drivers/libssl.so.3
+5bb0d21308f123b6ad46c6f35b42cedfcb8d6d439a53aa3dae04d880aaffdde3  ./data/local/tmp/wsl_drivers/libstdc++.so.6.0.35
+27fa6c6cb94fb5b099ead61758a300dbc392d1dbf307fff6c16a9b8e57fdc9de  ./data/local/tmp/wsl_drivers/libz.so.1
+9d075ff05e0123fea5fbe859625dd1168bd817ddeaf3a0138d43013c86861c24  ./system/lib64/libEGL_angle_orig.so
+14a7f14b2ff3acd298d96dbdc934180c84c765e03c68e9188ffa7b163485d4ac  ./system/lib64/libGLESv1_CM_angle.so
+84163a53e8fd8c58a96351aa96d2d9b959868c219fcafc7211ef021951a410d8  ./system/lib64/libGLESv2_angle_orig.so

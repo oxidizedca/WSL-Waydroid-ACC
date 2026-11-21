@@ -1,0 +1,9 @@
+version,stage,library,processes,distinct_resident_kib
+A,desktop,libcrypto.so.3,10,57120
+A,desktop,libstdc++.so.6,10,25880
+A,multi,libcrypto.so.3,12,68544
+A,multi,libstdc++.so.6,12,31056
+B,desktop,libcrypto.so.3,10,1872
+B,desktop,libstdc++.so.6,10,1720
+B,multi,libcrypto.so.3,12,1872
+B,multi,libstdc++.so.6,12,1720

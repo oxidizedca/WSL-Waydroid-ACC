@@ -1,0 +1,5 @@
+control_boots,observed_expand_frames,p95_ms,over_16_67
+N1+valid_N2,918,16.498,43
+N1+incomplete_N2,848,18.445,69
+all_observed_N,1305,17.706,93
+incomplete_N2_only,387,22.159,50

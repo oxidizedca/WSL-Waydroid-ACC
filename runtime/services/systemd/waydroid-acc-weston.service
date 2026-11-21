@@ -1,0 +1,11 @@
+[Unit]
+Description=Waydroid nested Weston with shared textures
+[Service]
+User=curioxygen
+Environment=XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir WAYLAND_DISPLAY=wayland-0
+Environment=GALLIUM_DRIVER=d3d12 MESA_LOADER_DRIVER_OVERRIDE=d3d12
+Environment=ACC_WINDOW_MODE=free ACC_WIDTH=1920 ACC_HEIGHT=1080
+EnvironmentFile=-/run/waydroid-acc-window.env
+Environment=LD_LIBRARY_PATH=/usr/local/lib/wsl-waydroid-acc/current/weston WESTON_MODULE_MAP=gl-renderer.so=/usr/local/lib/wsl-waydroid-acc/current/weston/gl-renderer.so;wayland-backend.so=/usr/local/lib/wsl-waydroid-acc/current/weston/wayland-backend.so
+ExecStartPre=/usr/bin/mkdir -p /tmp/wd-nested
+ExecStart=/usr/bin/weston --backend=wayland --socket=wd-weston --config=/usr/local/lib/wsl-waydroid-acc/current/weston/weston.ini --width=${ACC_WIDTH} --height=${ACC_HEIGHT} --idle-time=0 --log=/tmp/wd-nested/weston.log

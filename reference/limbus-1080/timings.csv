@@ -1,0 +1,6 @@
+stage,n,p50_ms,p95_ms,max_ms
+Submit(sync=true),1271,2.678,3.06,9.316
+eglSwapBuffers,1048,5.487,6.333,11.0
+dequeueBuffer,1049,0.003,0.005,0.046
+queueBuffer,2096,0.1,0.159,0.439
+interval_outside_swap,1047,23.165,33.958,606.713

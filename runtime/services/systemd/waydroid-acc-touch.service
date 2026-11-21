@@ -1,0 +1,17 @@
+[Unit]
+Description=Waydroid ACC virtual multitouch
+Requisite=waydroid-container.service
+After=waydroid-container.service
+StopPropagatedFrom=waydroid-container.service
+
+[Service]
+Type=exec
+EnvironmentFile=-/run/waydroid-acc-window.env
+RuntimeDirectory=waydroid-acc-touch
+RuntimeDirectoryMode=0700
+ExecStartPre=/sbin/modprobe evdev
+ExecStartPre=/sbin/modprobe uinput
+ExecStart=/usr/local/lib/wsl-waydroid-acc/current/bin/virtual-touch
+StandardError=journal
+ExecStartPost=/usr/local/lib/wsl-waydroid-acc/current/bin/waydroid-acc-touch-node attach
+ExecStopPost=/usr/local/lib/wsl-waydroid-acc/current/bin/waydroid-acc-touch-node detach

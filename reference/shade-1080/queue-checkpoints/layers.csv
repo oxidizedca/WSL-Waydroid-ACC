@@ -1,0 +1,13 @@
+run,class,total,StatusBar,Taskbar,Calculator,NotificationShade
+A1,slow,9,5,7,4,7
+A1,within,221,31,208,37,182
+A2,slow,6,6,6,3,4
+A2,within,226,30,212,39,187
+A3,slow,8,7,8,2,7
+A3,within,223,29,213,39,182
+B1,slow,11,11,11,1,9
+B1,within,220,24,208,41,177
+B2,slow,10,6,10,6,9
+B2,within,217,32,210,35,179
+B3,slow,8,6,8,3,6
+B3,within,222,32,211,38,182

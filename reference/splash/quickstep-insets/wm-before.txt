@@ -1,0 +1,2 @@
+      mDisplayFrame=Rect(0, 0 - 1920, 1080)
+        InsetsSource id=802d0001 type=navigationBars frame=[0,1017][1920,1080] visible=true flags=INSETS_ROUNDED_CORNER sideHint=BOTTOM boundingRects=null

@@ -1,0 +1,148 @@
+Source file notices (identical blocks grouped by path)
+
+================================================================
+src/core.c
+
+/*
+ * Copyright © 2008-2011 Kristian Høgsberg
+ * Copyright © 2010-2011 Intel Corporation
+ * Copyright © 2012-2013 Collabora, Ltd.
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation files
+ * (the "Software"), to deal in the Software without restriction,
+ * including without limitation the rights to use, copy, modify, merge,
+ * publish, distribute, sublicense, and/or sell copies of the Software,
+ * and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the
+ * next paragraph) shall be included in all copies or substantial
+ * portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+================================================================
+src/wayland-client-core.h
+src/wayland-client.h
+src/wayland-util.h
+
+/*
+ * Copyright © 2008 Kristian Høgsberg
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the
+ * next paragraph) shall be included in all copies or substantial
+ * portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+================================================================
+src/wayland-client-protocol.h
+
+/**
+ * @page page_wayland The wayland protocol
+ * @section page_ifaces_wayland Interfaces
+ * - @subpage page_iface_wl_display - core global object
+ * - @subpage page_iface_wl_registry - global registry object
+ * - @subpage page_iface_wl_callback - callback object
+ * - @subpage page_iface_wl_compositor - the compositor singleton
+ * - @subpage page_iface_wl_shm_pool - a shared memory pool
+ * - @subpage page_iface_wl_shm - shared memory support
+ * - @subpage page_iface_wl_buffer - content for a wl_surface
+ * - @subpage page_iface_wl_data_offer - offer to transfer data
+ * - @subpage page_iface_wl_data_source - offer to transfer data
+ * - @subpage page_iface_wl_data_device - data transfer device
+ * - @subpage page_iface_wl_data_device_manager - data transfer interface
+ * - @subpage page_iface_wl_shell - create desktop-style surfaces
+ * - @subpage page_iface_wl_shell_surface - desktop-style metadata interface
+ * - @subpage page_iface_wl_surface - an onscreen surface
+ * - @subpage page_iface_wl_seat - group of input devices
+ * - @subpage page_iface_wl_pointer - pointer input device
+ * - @subpage page_iface_wl_keyboard - keyboard input device
+ * - @subpage page_iface_wl_touch - touchscreen input device
+ * - @subpage page_iface_wl_output - compositor output region
+ * - @subpage page_iface_wl_region - region interface
+ * - @subpage page_iface_wl_subcompositor - sub-surface compositing
+ * - @subpage page_iface_wl_subsurface - sub-surface interface to a wl_surface
+ * - @subpage page_iface_wl_fixes - wayland protocol fixes
+ * @section page_copyright_wayland Copyright
+ * <pre>
+ *
+ * Copyright © 2008-2011 Kristian Høgsberg
+ * Copyright © 2010-2011 Intel Corporation
+ * Copyright © 2012-2013 Collabora, Ltd.
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation files
+ * (the "Software"), to deal in the Software without restriction,
+ * including without limitation the rights to use, copy, modify, merge,
+ * publish, distribute, sublicense, and/or sell copies of the Software,
+ * and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the
+ * next paragraph) shall be included in all copies or substantial
+ * portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * </pre>
+ */
+
+================================================================
+src/wayland-version.h
+
+/*
+ * Copyright © 2012 Intel Corporation
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the
+ * next paragraph) shall be included in all copies or substantial
+ * portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */

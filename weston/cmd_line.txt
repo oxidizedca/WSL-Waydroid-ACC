@@ -1,0 +1,31 @@
+[options]
+backend-drm = false
+backend-drm-screencast-vaapi = false
+backend-default = wayland
+backend-headless = false
+backend-pipewire = false
+backend-rdp = false
+backend-vnc = false
+backend-x11 = false
+remoting = false
+pipewire = false
+screenshare = false
+xwayland = false
+shell-desktop = false
+shell-fullscreen = false
+shell-ivi = false
+shell-kiosk = false
+color-management-lcms = false
+image-jpeg = false
+image-webp = false
+systemd = false
+tools = []
+simple-clients = []
+demo-clients = false
+tests = false
+doc = false
+prefix = /usr
+libdir = lib/x86_64-linux-gnu
+
+[properties]
+

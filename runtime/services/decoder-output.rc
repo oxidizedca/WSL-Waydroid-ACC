@@ -1,0 +1,3 @@
+# waydroid-init completes in post-fs-data. Set the decoder output before apps start.
+on early-boot
+    setprop debug.ffmpeg-codec2.pixel_format YUV_420
