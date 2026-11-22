@@ -1,2 +1,0 @@
-libcrypto.so.3: exact=1 changed-id=0 changed-layout=0
-libstdc++.so.6: exact=1 changed-id=0 changed-layout=0

@@ -10,49 +10,45 @@ The project modifies Android system libraries. Applications may detect those cha
 
 ## 1. Overview
 
-WSL-Waydroid-ACC brings GPU acceleration to **x86_64 Waydroid on WSL2 using the Windows host GPU**. Android applications continue to use EGL and OpenGL ES. Mesa's D3D12 backend submits their rendering work to the Windows graphics driver. Eligible application layers and the physical display's composition target travel as shared textures to a nested Weston compositor, which WSLg displays on the Windows desktop.
+**WSL-Waydroid-ACC is an alpha integration project for running x86_64 Waydroid on WSL2.** It builds on an existing Waydroid installation so Android apps can use the Windows host GPU and appear on the Windows desktop. The repository also brings together window management, input, debugging tools and optional ARM64 app support. It does not ship a complete WSL distribution or Android system image.
 
-**Deployment baseline (2026-11-21): `built.0L1nxt11`.** This was the release directory name on the test machine when the baseline was frozen, not a Git commit. The 11 binaries and 12 scripts/configuration files in `runtime/` were checked against the installed files. Host EGL and Gallium have a separate [manifest](host/SHA256SUMS). `out/` holds subsequent builds and is not a restore source. After deployment, both host services and Android load their components from the installation, not the source tree or NDK. [Baseline SHA-256 manifest](runtime/SHA256SUMS)
+| Component | What it provides |
+| --- | --- |
+| GPU acceleration and desktop integration | Mesa D3D12 renders on the Windows host GPU. Eligible frames reach a nested Weston compositor through shared textures. The runtime package also provides window size and aspect-ratio controls, mouse-to-touch input, virtual multitouch, ADB forwarding to Windows localhost and lossless PNG screenshots. [Runtime package](deploy/wsl-waydroid-acc/) · [Integration details and tests](docs/MISC.md#english) |
+| ARM64 app compatibility (optional) | Digitalis lets x86_64 Waydroid run ARM64 applications. The current version uses CC1 and short-leaf optimizations. It installs separately through the Waydroid overlay and does not require KernelSU. [Deployment package](deploy/digitails/) · [Source patches and guide](system-optimize/digitails/README.md#english) |
+| Android system tuning (optional) | A KernelSU module enables on-demand shader compilation in SurfaceFlinger to reduce memory use. GPU acceleration does not require the module. [Module and test results](system-optimize/README.md#english) |
 
-The [optional KernelSU module](system-optimize/README.md#english) is separate from the graphics baseline and is not installed by default. Optional ARM64 compatibility uses a Waydroid overlay, not a KernelSU module; see [Digitalis and the optional MuMu library](MISC.md#digitalis-arm64-en). The [Digitalis prebuilt archive](system-optimize/digitails/README.md#english) includes its license and third-party notices and can be distributed separately.
+The [offline deployment guide](deploy/README.md#english) lists the verification and installation commands for both prebuilt packages. The runtime package is built from the [current runtime](runtime/SHA256SUMS) and [host libraries](host/SHA256SUMS); it does not install Digitalis or the KernelSU module. Once deployed, the runtime does not depend on the source checkout or the NDK.
 
-## 2. How it works
+## 2. Project documentation
 
-### How a frame reaches Windows
+- [GPU acceleration and its limits](docs/GPU-ACC.md#english): follow a frame from an application's EGL/GLES calls to Weston, including where textures are shared and where copies or synchronization remain.
+- [Known issues](docs/KNOWN-ISSUE.md#english): image and game issues observed in testing, with workarounds where available.
+- [Unfinished work](docs/UNFINISHED.md#english): unpackaged modules, open questions and experiments not adopted.
 
-1. **Access D3D12 from an Android process.** The EGL/GLES shims receive Android graphics calls. A custom ELF loader handles symbol resolution, relocations and thread-local storage across Bionic and glibc, allowing Mesa Gallium's D3D12 driver to call WSL's DXCore and D3D12 libraries and use the host GPU through `/dev/dxg`. [Loader](src/loader_so.c) · [EGL shim](src/egl_shim.c)
-2. **Hand application windows to SurfaceFlinger.** Application windows still dequeue buffers from Android BufferQueue. When dimensions, format and usage qualify, the producer exports a GPU texture and a readiness signal. The host input broker tracks them by buffer ID and content generation. RenderEngine can sample that generation directly and reuse an import on repeated binds. Gralloc still allocates Android buffers and supplies their handles and layouts; a CPU mirror is produced on demand. [Window publication](src/window.h) · [Input broker](src/broker.c) · [RenderEngine input](src/input.h)
-3. **Hand the physical display's CLIENT target to Weston.** RenderEngine copies the composed image to a shareable GPU texture. Through the project's Wayland protocol, HWC asks nested Weston to import and sample it. Successful imports avoid GPU-to-CPU readback and a full-frame `wl_shm` copy. The first import requires confirmation; validated producer/size combinations can request subsequent imports asynchronously. On failure, the current image remains visible while a CPU mirror is requested for recovery. [Target export](src/producer.h) · [HWC submission](src/client-hwc.h) · [Weston import](weston/libweston/renderer-gl/texture.c)
+## 3. Launcher
 
-### Remaining bottlenecks
+After deployment, run `sudo waydroid-acc-start` in WSL to start or restart the installed version. The [launcher](services/waydroid-acc-start) runs independently of the source checkout. Use `waydroid-acc-start --help` to list its options.
 
-- **No end-to-end dma-buf passthrough between Android gralloc and the host GPU on this WSL2 stack.** Waydroid can allocate and pass dma-bufs inside the Linux guest, but the host GPU exposes rendering resources through D3D12 and `/dev/dxg`. The tested dxgkrnl/Mesa/gralloc combination lacks an interface through which both sides can import the same allocation. Passing a gralloc fd to Weston therefore does not let it sample the texture the host GPU just rendered. [WSL GPU architecture](https://devblogs.microsoft.com/directx/directx-heart-linux/) · [Linux dma-buf import/export](https://docs.kernel.org/6.18/driver-api/dma-buf.html)
+**Window, resolution and input:** `-w` is short for `--weston`; `-r` for `--resolution`. `-m` is short for `--mouse`. The options can be used independently, in any order. Resolution refers to the **Android content area**, not the title bar, borders or Windows DPI scaling. Each invocation restarts the session; it does not resize it live or save the arguments as new defaults.
 
-  Android buffers still serve queueing and release, while D3D12 shared textures travel separately. Weston imports them with `GL_HANDLE_TYPE_OPAQUE_FD_EXT`. The shared path avoids a full CPU readback, but the physical CLIENT target still needs a GPU snapshot and readiness synchronization. CPU consumers still need a mirror. [Mesa export](mesa/src/mesa/state_tracker/st_cb_readpixels.c) · [Weston import](weston/libweston/renderer-gl/texture.c)
-- **GPU snapshots still cost a copy and synchronization.** Preallocation creates the destination in advance, but RenderEngine still has to blit from the current framebuffer, submit work and pass the readiness signal. In the Settings test the median combined time for target creation, submission and handle processing fell from 3.19 to 1.54 ms. [Stage timings](reference/RESULT.md#english)
-- **Buffer release and cross-process replies can delay the slowest frames.** A producer may wait for a free BufferQueue slot or for the broker to confirm visibility. Letting the broker handle other windows' requests while waiting for a GPU query did not consistently improve reply P95 across two runs. With all optimizations on, notification-shade display-frame P95 was 16.45 and 17.68 ms respectively; the latter exceeds the 16.67 ms budget at 60 Hz. The measurements do not isolate the broker as the cause. [Comparison](reference/display.csv) · [Queue and reply timings](reference/stages-reverse.csv)
-- **The shared path is constrained by the buffer contract.** Readback, format conversion and shared-memory copies can still occur for ineligible dimensions, formats, strides or usage flags, when a consumer needs CPU pixels, or when Weston cannot import the texture. Recheck gralloc layouts, the HWC interface and window eligibility when porting to a different image or resolution. [Window eligibility](src/window.h) · [HWC fallback](src/adapter.c)
-
-### Known issue in the tested image
-
-With the lock screen disabled, launching Settings from Home after a cold boot can make the expanding splash look transparent. In this LineageOS 23.2 image, Quickstep uses its initial navigation-bar position of zero as the bottom crop edge until it receives the first position callback. Restarting just the launcher reproduces it; opening and closing the notification shade restores the animation. With swipe-to-unlock enabled, the first launch after a cold boot and unlock looked correct without touching the shade. This is documented as an image issue: the project does not patch the launcher, SystemUI or graphics layer, or simulate opening the shade at startup. [On-device comparison and cause](reference/splash/README.md#english)
-
-## 3. Test results
-
-**Baseline verification, 2026-11-21.** Weston, the input broker and the texture consumer all mapped the same installed release. The Android graphics libraries, screenshot tooling and host service configuration were checked against the installed files. The baseline includes the memory and window changes below; it does not enable experimental scheduling policies. [Frozen files and verification commands](reference/baseline-20261121.md#english) · [Read-only CPU/GPU scheduling measurements](system-optimize/results/scheduling/README.md#english)
-
-**Display and memory at 1080p.** The default physical display is 1920×1080, with no Weston top panel. During Settings launch, scrolling and return to Home, Weston imported 67 full-size EGLImages. In two scrolling batches, display-frame P50 was 7.50 / 7.81 ms and P95 was 9.31 / 9.67 ms. Each row below describes a separate comparison: do not add savings across rows or treat the 1920×1048 measurements as a like-for-like comparison. [1080p samples](reference/display-1080.csv)
-
-| Baseline change | Result under matched conditions |
+| WSL command | Window behavior |
 |---|---|
-| [Full-buffer BLAKE3 validation in the broker](reference/shade-1080/README.md#english) | All bytes, including row padding, remain covered. Combined shade-open/close P95 over Calculator: 19.26 → 15.22 ms. Opening alone still measured 19.00 ms. |
-| [Reuse imports within a generation](reference/shade-1080/validated-import/README.md#english) | Reuse occurs only after the broker validates the writable buffer for that request. Shade-open P95: 19.02 → 16.15 ms; 22/452 frames still exceeded the 60 Hz budget. |
-| [Share read-only AMD driver pages](reference/memory-1080/loader-system/README.md#english) | Whole-stack working set: 4862 → 2977 MiB at Home; 5884 → 4047 MiB after opening Settings, Jelly and Calculator. No swap at those checkpoints. |
-| [Release ELF parser mappings and fds; share read-only Gallium pages](reference/memory-1080/loader-lifetime/deployed/README.md#english) | Relative to AMD sharing already enabled, the desktop and multi-app working sets fell by a further 178.4 and 217.8 MiB. |
-| [Reuse CPU staging slots](reference/memory-1080/remaining/pool-deployed/README.md#english) | Repeatedly opening Search and returning Home reduced its pool from 8 slots to 1 (63.28 → 7.91 MiB). None of the four measured actions had a worse display-frame P95. |
-| [Share read-only libcrypto and libstdc++ pages](reference/memory-1080/remaining/shared-split/README.md#english) | In the multi-app test, enabling one library saved 65.05 or 28.46 MiB, respectively; together they saved 93.55 MiB. These are resident physical pages of the target mappings, deduplicated across 12 graphics processes, not whole-machine savings. No repeatable shade-open tail regression could be attributed to one library. |
+| `sudo waydroid-acc-start` | Start at 1920×1080 with Weston's usual free resizing. |
+| `sudo waydroid-acc-start -r 1600x900` | Start at 1600×900; still freely resizable. |
+| `sudo waydroid-acc-start -w fix -r 1280x720` | Fix the content area at 1280×720. The window can be moved or closed; ordinary edge drags do not resize it. |
+| `sudo waydroid-acc-start --weston ratio --resolution 1280x720` | Keep Android at 1280×720; fit the content into a resizable outer window, centered at its original aspect ratio with black bars. |
+| `sudo waydroid-acc-start -m touch` | In Android content, left-click and drag act as one finger; hover, right-click and wheel (including Ctrl+wheel) send no mouse events. Hold either Ctrl key, press the left button, then drag at least 4 content pixels to pinch around **the center of the Android content**. One contact follows the cursor and the other mirrors it across that center. Drag toward the center to pinch or away from it to spread. Letterbox bars are excluded. A stationary Ctrl-click sends no touch; releasing Ctrl or the button ends the gesture. Omit the option or use `-m pointer` for normal mouse input. |
 
-The following configuration was read from Windows, the running WSL distribution and the Waydroid container on 2026-11-20.
+Use `WIDTHxHEIGHT`; both axes accept integers from 128 to 8192. This does not mean every size has been stress-tested on the GPU, in games or under memory pressure. The aspect ratio comes from `-r`, not a hard-coded 16:9. Fixed mode requests a normal-window size lock through xdg-shell; forced snapping and cross-monitor DPI behavior depend on WSLg. Scaling uses the GL viewport of one EGL window without readback. Non-native sizes redraw the whole frame rather than reusing native damage rectangles. Virtual touch axes follow the startup size. Non-1080p modes do not expand the validated shared-texture or PNG fast-path allowlists. The current version includes the custom Wayland backend and disables the Weston top panel. [Window and input verification](docs/MISC.md#weston-window-and-input-en)
+
+Deployment starts the container once to verify the display stack. On success it disables boot-time startup of `waydroid-container.service` without stopping the current session. Opening WSL alone will not start Weston via `multi-user.target`; run `sudo waydroid-acc-start` when you want the UI.
+
+## 4. Test results
+
+### Test environment
+
+Host, WSL and image versions below were recorded on 2026-11-20. The ARM64 compatibility row describes the current test setup.
 
 | Component | Measured version or configuration |
 |---|---|
@@ -63,30 +59,32 @@ The following configuration was read from Windows, the running WSL distribution 
 | WSL kernel | `uname -r`: `7.2.8-microsoft-standard-WSL2`, selected in `.wslconfig`; the bundled kernel reported by `wsl --version` was `6.18.58.1-1` |
 | Waydroid | `1.6.3`, container vendor type `MAINLINE` |
 | Waydroid image | Android 16, LineageOS 23.2, `ro.lineage.version=23.2-20260717-UNOFFICIAL-WayDroidATV-waydroid_x86_64`. OTA channel `a16-qpr2`, `GAPPS` system image, security patch `2026-07-01` |
-| Renderer and display | SurfaceFlinger reported `D3D12 (AMD Radeon RX 7900 XTX)`, OpenGL ES 3.1, Mesa 26.0.8. Nested Weston 14.0.2. Android's physical output then was 1920 × 1048; the current baseline defaults to 1920 × 1080. |
+| Renderer and display | SurfaceFlinger reported `D3D12 (AMD Radeon RX 7900 XTX)`, OpenGL ES 3.1, Mesa 26.0.8. Nested Weston 14.0.2. Android's physical output then was 1920 × 1048; the current version defaults to 1920 × 1080. |
+| ARM64 app compatibility | The test environment uses the [Digitalis translator (CC1 + short-leaf)](deploy/digitails/) and MuMu’s ARM64 guest library at `/system/lib64/arm64/libnativebridge.so`. The MuMu library is not distributed in this repository. |
 
-The **2026-11-20 build** passed offscreen validation of 12 shared-texture generations at two sizes. After deployment and restart, Home, Settings and return to Home were inspected from Windows, followed by a manual trial. [Offscreen output](reference/baseline-build.log) · [Pixel and readiness checks](validation/check.c)
+### Performance
 
-In two batches run in opposite orders, Settings scrolling improved from 11.53 / 11.43 to 6.97 / 7.08 ms (SurfaceFlinger display-frame P50). A separate 12-second, 720-frame Windows recording covered scrolling, app switching, the notification shade, Recents and return to Home. Frame-by-frame screening found no all-black frames or horizontal black bands in that recording. These timings and video are for the then-current 1920×1048 setup, not frame-by-frame acceptance of the current 1080p baseline. [Method and results](reference/RESULT.md#english) · [60 FPS recording](reference/111-60fps.mp4) · [Frame log](reference/111-60fps.csv)
+On 2026-11-22, each game was sampled for 120 s at 0.5 s intervals. Android reported a physical output of 1920×1080; each run contributed about 119.5 s of valid foreground game-layer data. These are single runs, not repeatability estimates.
 
-### Whole-stack resource use and frame rate with Blue Archive in the foreground
+| Game (versionCode) | Average FPS | 1% low FPS | Mean WSL CPU | Waydroid working set, mean / peak (GiB) |
+|---|---:|---:|---:|---:|
+| Blue Archive (474931) | 56.62 | 13.94 | 11.01% | 4.63 / 4.69 |
+| Arknights (210) | 56.71 | 23.59 | 15.98% | 6.78 / 7.43 |
+| Limbus Company (494) | 40.73 | 6.94 | 19.89% | 5.55 / 5.63 |
 
-A 60-second sample was taken on 2026-11-20 from 13:13:08 to 13:14:08 (UTC+8) on the 1048p build. Both the buffer Unity submitted and Android's output were **1920 × 1048**; the game's internal 3D resolution was not measured. Totals cover the Android container, nested Weston, input broker, texture consumer and WSL-side container, session and network helpers. They exclude the Windows-side WSLg client and dedicated GPU memory.
+FPS measures Android game-buffer readiness, not Windows presentation. The 1% low is the reciprocal of the mean duration of the slowest 1% of complete frame intervals. CPU is for all of WSL on a 0–100% scale; memory is the estimated working set of Waydroid and its host services, excluding inactive file cache.
 
-| Metric | 60-second result |
-|---|---|
-| Total Waydroid CPU | **138.5%** average, or 1.38 logical cores: **8.65%** of the 16 available to WSL. Peak 230.1% in 1.5-second samples. |
-| Total Waydroid memory | **12.12 GiB** average including cache. Subtracting about 5.01 GiB of inactive file cache gives an estimated **7.11 GiB** average working set, peak 7.24 GiB. |
-| Game process alone | **101.9%** average CPU, **2.21 GiB** average PSS (shared pages apportioned proportionally). |
-| Game-layer ready rate | **3,266 frames, 54.43 FPS** average. Median per-second count 56, minimum 8. |
-| Game frame-ready interval | P50 **17.11 ms**, P95 **26.08 ms**, longest **522.6 ms**. |
-| SurfaceFlinger display composition | **3,267 completed frames, 54.45 frames/s** over the same interval. |
+Blue Archive includes loading into battle: the two single-digit sampling windows occurred around 87 s and remain in the figures.
 
-Only 8 game frames became ready between seconds 32 and 33, and 20 in the next second. This interval contained the longest gap. Actual present timestamps for the game layer returned `-1`, so game FPS uses deduplicated buffer-ready times, cross-checked against SurfaceFlinger completions. The sample does not establish what caused the stall. [Resource and frame counts at 1.5-second intervals](reference/bluearchive-20261120-131308.csv) · [Per-frame ready times](reference/bluearchive-20261120-131308-frames.csv)
+#### Game screenshots
 
-## 4. Build instructions
+| Blue Archive | Arknights | Limbus Company |
+|:---:|:---:|:---:|
+| [![Blue Archive screenshot](preview/BlueArchive.png)](preview/BlueArchive.png) | [![Arknights screenshot](preview/Arknights.png)](preview/Arknights.png) | [![Limbus Company screenshot](preview/LimbusCompany.png)](preview/LimbusCompany.png) |
 
-### Upstream sources and baseline checkouts
+## 5. Build instructions
+
+### Upstream sources used by the current version
 
 `build.sh` unpacks the bundled Mesa and Weston sources and applies local files from [mesa/](mesa/) and [weston/](weston/). Use the commits below to check out upstream originals and compare changes. The actual build inputs are the repository's archives and overlays. [Archive SHA-256 manifest](vendor/SHA256SUMS) · [Build script](build.sh)
 
@@ -110,11 +108,11 @@ Only 8 game frames became ready between seconds 32 and 33, and 20 in the next se
 | `platform/frameworks/native` | [`fcbde2bcff56ca1d7bec9cabf8bdca5e288bf103`](https://android.googlesource.com/platform/frameworks/native/+/fcbde2bcff56ca1d7bec9cabf8bdca5e288bf103) | [vndk/window.h](include/android_stub/vndk/window.h), [nativebase.h](include/android_stub/nativebase/nativebase.h) |
 | `platform/system/logging` | [`58dac317ea08b8f275ebd01ce864acab2de30b93`](https://android.googlesource.com/platform/system/logging/+/58dac317ea08b8f275ebd01ce864acab2de30b93) | [log.h](include/android_stub/log/log.h), [log_id.h](include/android_stub/log/log_id.h) |
 
-**Runtime versions.** Waydroid container manager `1.6.3` corresponds to `5b7e2e71be3f6bfaaaab3b461251dacaf1ce4991`. The graphics adapter loads the image's `hwcomposer.vendor-base.so` at runtime. Its exact source commit is unknown; deployment pins the binary by SHA-256: `942fad47d8372ea1eb6873a8ccad0954d91592b0fc6137d8eff2f638043f1a29`. See section 3 for the full LineageOS image ID. [Waydroid commit](https://github.com/waydroid/waydroid/commit/5b7e2e71be3f6bfaaaab3b461251dacaf1ce4991) · [HAL loading](src/adapter.c) · [Deployment checks](deploy.sh)
+**Runtime versions.** Waydroid container manager `1.6.3` corresponds to `5b7e2e71be3f6bfaaaab3b461251dacaf1ce4991`. The graphics adapter loads the image's `hwcomposer.vendor-base.so` at runtime. Its exact source commit is unknown; deployment pins the binary by SHA-256: `942fad47d8372ea1eb6873a8ccad0954d91592b0fc6137d8eff2f638043f1a29`. See [Test environment](#test-environment) for the full LineageOS image ID. [Waydroid commit](https://github.com/waydroid/waydroid/commit/5b7e2e71be3f6bfaaaab3b461251dacaf1ce4991) · [HAL loading](src/adapter.c) · [Deployment checks](deploy/wsl-waydroid-acc/deploy.sh)
 
 The test machine's separately built WSL kernel used `ZoeHao2026/wsl-kernel-7.2.8` at `53bb4a4b310111d020155333d1a378cbc80af869`. It is based on Linux stable `v7.2.8`, with Microsoft WSL changes ported from `linux-msft-wsl-6.18.40.1` (`14794180686c2fb6307fbe359c359bec765249f3`). [Kernel port and versions](https://github.com/ZoeHao2026/wsl-kernel-7.2.8/tree/53bb4a4b310111d020155333d1a378cbc80af869) · [Microsoft WSL kernel commit](https://github.com/microsoft/WSL2-Linux-Kernel/commit/14794180686c2fb6307fbe359c359bec765249f3)
 
-### 4.1 WSL kernel and devices
+### 5.1 WSL kernel and devices
 
 `build.sh` builds userspace components. Offscreen GPU tests require a working WSL D3D12 device. Running Waydroid also requires Binder, graphics buffers, container networking and image mounts. Check these options to reproduce the test configuration (`=y`: built in; `=m`: module).
 
@@ -128,7 +126,7 @@ The test machine's separately built WSL kernel used `ZoeHao2026/wsl-kernel-7.2.8
 | Android images and writable layer | `CONFIG_BLK_DEV_LOOP=y`, `CONFIG_EROFS_FS=m`, `CONFIG_EXT4_FS=y`, `CONFIG_OVERLAY_FS=y` | The system image uses EROFS and vendor uses ext4; a writable overlay is mounted at runtime. |
 | LXC and container networking | `CONFIG_NAMESPACES=y` with `UTS_NS`, `IPC_NS`, `USER_NS`, `PID_NS`, `NET_NS`; `CONFIG_CGROUPS=y`, `CONFIG_CGROUP_BPF=y`, `CONFIG_VETH=y`, `CONFIG_BRIDGE=m`, `CONFIG_BRIDGE_NETFILTER=m`, `CONFIG_NF_CONNTRACK=y`, `CONFIG_NF_NAT=y` | The test machine uses cgroup v2 and the `waydroid0` bridge. |
 
-A custom kernel must retain WSL Hyper-V and dxgkrnl support. The module VHDX must match the booted kernel. Select the files with `kernel` and `kernelModules` under `[wsl2]` in the Windows user's `.wslconfig`. Stage sampling with `validation/measure.py` also requires `CONFIG_FTRACE=y` and `CONFIG_UPROBE_EVENTS=y`. [Microsoft kernel build instructions](https://github.com/microsoft/WSL2-Linux-Kernel#build-instructions) · [Custom kernel configuration](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)
+A custom kernel must retain WSL Hyper-V and dxgkrnl support. The module VHDX must match the booted kernel. Select the files with `kernel` and `kernelModules` under `[wsl2]` in the Windows user's `.wslconfig`. Stage sampling with `out/validation/measure.py` also requires `CONFIG_FTRACE=y` and `CONFIG_UPROBE_EVENTS=y`. [Microsoft kernel build instructions](https://github.com/microsoft/WSL2-Linux-Kernel#build-instructions) · [Custom kernel configuration](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)
 
 Check the current kernel and devices in WSL. `/proc/config.gz` requires `CONFIG_IKCONFIG_PROC`.
 
@@ -138,13 +136,13 @@ zgrep -E '^CONFIG_(DXGKRNL|ANDROID_BINDER_IPC|ANDROID_BINDERFS|DMABUF_HEAPS_SYST
 ls -l /dev/dxg /dev/dma_heap/system /dev/binderfs /dev/dri
 ```
 
-### 4.2 Build dependencies on Ubuntu 26.04 LTS
+### 5.2 Build dependencies on Ubuntu 26.04 LTS
 
 In Bash on x86_64 Ubuntu, install the host compiler, Mesa/Weston build tools and development packages. `directx-headers-dev` is in Ubuntu's `universe` component; `libwayland-bin` supplies `wayland-scanner`. The Android build uses the bundled NDK r27c (27.2.12479018). [Ubuntu DirectX-Headers package](https://packages.ubuntu.com/source/resolute/directx-headers) · [Build script](build.sh)
 
 ```bash
 sudo apt update
-sudo apt install build-essential binutils meson ninja-build pkgconf bison flex \
+sudo apt install git-lfs build-essential binutils meson ninja-build pkgconf bison flex \
   python3 python3-mako python3-packaging python3-yaml directx-headers-dev \
   libdrm-dev libelf-dev libexpat1-dev zlib1g-dev libzstd-dev libdisplay-info-dev \
   libwayland-bin libwayland-dev wayland-protocols libudev-dev libinput-dev \
@@ -153,40 +151,28 @@ sudo apt install build-essential binutils meson ninja-build pkgconf bison flex \
   libfontconfig-dev libglib2.0-dev liblcms2-dev libssl-dev libsystemd0
 ```
 
-### 4.3 Build, offscreen validation and deployment
+### 5.3 Build, offscreen validation and deployment
 
-Run the following from the repository root. The script verifies the manifests in `toolchains/`, `vendor/` and `host/`, unpacks the NDK and prepares the Mesa/Weston builds in the WSL user's cache. It writes the graphics binaries (including the private Wayland window backend), WSL touch program, Android PNG encoder and SHA-256 manifest to `out/`. Use `bash build.sh` to build only; `--offscreen` validates shared textures using the newly built Gallium driver.
+Run these commands from the root of a Git clone. Fetch the archives with Git LFS first; a pointer file cannot be used as build input. The script verifies the manifests in `toolchains/`, `vendor/` and `host/`, unpacks the NDK and prepares the Mesa/Weston builds in the WSL user's cache. It writes the graphics binaries (including the private Wayland window backend), WSL touch program, Android PNG encoder and SHA-256 manifest to `out/build/`. A normal build needs no private test files. Maintainers with a local `out/validation/check.c` can optionally add `--offscreen`.
 
 ```bash
+git lfs pull
 unset NDK ANDROID_NDK_HOME ANDROID_NDK_ROOT
-JOBS=4 bash build.sh --offscreen
-(cd out && sha256sum -c SHA256SUMS)
+JOBS=4 bash build.sh
+(cd out/build && sha256sum -c SHA256SUMS)
 ```
 
-Deployment targets a **Waydroid instance already configured with this project's Android graphics libraries and overlay**. It requires WSLg, systemd and compatible Weston. On another machine, check the WSL user in the service templates, the vendor HAL in the image and the WSL graphics libraries in the container. Deploying restarts both Waydroid and nested Weston. [Deployment script](deploy.sh) · [Host service templates](services/systemd/) · [Android graphics library manifest](reference/android-libraries.sha256)
+Deployment targets a **Waydroid instance already configured with this project's Android graphics libraries and overlay**. It requires WSLg, systemd and compatible Weston. On another machine, check the WSL user in the service templates, the vendor HAL in the image and the WSL graphics libraries in the container. Deploying restarts both Waydroid and nested Weston. [Deployment script](deploy/wsl-waydroid-acc/deploy.sh) · [Host service templates](services/systemd/)
 
 | WSL command | Action |
 |---|---|
-| `sudo bash deploy.sh built` | Deploy the new `out/` and development `services/`, without changing the frozen baseline. |
-| `sudo bash deploy.sh apply` or `sudo bash deploy.sh restore` | Install or restore `runtime/` and its frozen scripts/configuration; no build required. No argument means `apply`. |
-| `sudo waydroid-acc-start` | Start or restart the installed release from its standalone directory. [Launcher](services/waydroid-acc-start) |
+| `bash deploy/wsl-waydroid-acc/deploy.sh verify` | Verify the archive, unpack it in a temporary directory and check the bundled runtime and host libraries. No root or installation required. |
+| `sudo bash deploy/wsl-waydroid-acc/deploy.sh built` | Deploy the new `out/build/` and development `services/`, without changing the prebuilt archive for the current version. |
+| `sudo bash deploy/wsl-waydroid-acc/deploy.sh apply` or `sudo bash deploy/wsl-waydroid-acc/deploy.sh restore` | Install or restore the current runtime and host libraries from the adjacent archive. The deployment directory can be copied on its own; no build required. No argument means `apply`. |
 
-**Window and resolution:** `-w` is short for `--weston`; `-r` for `--resolution`. Either can be used alone, in any order. Resolution refers to the **Android content area**, not the title bar, borders or Windows DPI scaling. Each invocation restarts the session; it does not resize it live or save the arguments as new defaults.
+Host programs and Weston modules are installed in `/usr/local/lib/wsl-waydroid-acc/`; Android components go into the overlay and container data directory. This image also has an optional `services.jar` change for the startup GPU-status warning.
 
-| WSL command | Window behavior |
-|---|---|
-| `sudo waydroid-acc-start` | Start at 1920×1080 with Weston's usual free resizing. |
-| `sudo waydroid-acc-start -r 1600x900` | Start at 1600×900; still freely resizable. |
-| `sudo waydroid-acc-start -w fix -r 1280x720` | Fix the content area at 1280×720. The window can be moved or closed; ordinary edge drags do not resize it. |
-| `sudo waydroid-acc-start --weston ratio --resolution 1280x720` | Keep Android at 1280×720; fit the content into a resizable outer window, centered at its original aspect ratio with black bars. |
-
-Use `WIDTHxHEIGHT`; both axes accept integers from 128 to 8192. This does not mean every size has been stress-tested on the GPU, in games or under memory pressure. The aspect ratio comes from `-r`, not a hard-coded 16:9. Fixed mode requests a normal-window size lock through xdg-shell; forced snapping and cross-monitor DPI behavior depend on WSLg. Scaling uses the GL viewport of one EGL window without readback. Non-native sizes redraw the whole frame rather than reusing native damage rectangles. Virtual touch axes follow the startup size. Non-1080p modes do not expand the validated shared-texture or PNG fast-path allowlists. The frozen baseline includes the custom Wayland backend and disables the Weston top panel. [Window and input verification](MISC.md#weston-window-and-input-en)
-
-Deployment starts the container once to verify the display stack. On success it disables boot-time startup of `waydroid-container.service` without stopping the current session. Opening WSL alone will not start Weston via `multi-user.target`; run `sudo waydroid-acc-start` when you want the UI.
-
-Host programs and Weston modules are installed in `/usr/local/lib/wsl-waydroid-acc/`; Android components go into the overlay and container data directory. This image also has an optional `services.jar` change for the startup GPU-status warning. [Standalone verification](reference/standalone/README.md#english) · [GPU startup notification](reference/android-system/README.md#english)
-
-For Windows ADB access, virtual multitouch and faster lossless PNG screenshots, see [Additional configuration and test results](MISC.md#english).
+For Windows ADB access, virtual multitouch and faster lossless PNG screenshots, see [Additional configuration and test results](docs/MISC.md#english).
 
 ## License
 

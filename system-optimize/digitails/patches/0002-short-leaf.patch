@@ -1,0 +1,181 @@
+diff --git a/lite_translator/arm64_to_x86_64/lite_translate_region.cc b/lite_translator/arm64_to_x86_64/lite_translate_region.cc
+index de2c117f494e7f3f0fc50cfc32574168a7eccd78..4a2177c3bf08c291e94cad3db94850d9c8632c2b 100644
+--- a/lite_translator/arm64_to_x86_64/lite_translate_region.cc
++++ b/lite_translator/arm64_to_x86_64/lite_translate_region.cc
+@@ -32,6 +32,24 @@ namespace berberis {
+ 
+ namespace {
+ 
++constexpr unsigned kLeafSlots = 64;
++thread_local Arm64LeafRecipe leaves[kLeafSlots]{};
++unsigned LeafSlot(GuestAddr pc) { return ((pc >> 2) ^ (pc >> 9)) % kLeafSlots; }
++
++// The decoder still implements each accepted instruction. No nested control flow,
++// SP changes, X30 writes, atomics, syscalls or PC-relative materialization.
++bool LeafWord(uint32_t w) {
++  const unsigned rd = w & 31, rn = (w >> 5) & 31;
++  if (rd >= 30) return false;
++  if ((w & 0xbfc00000u) == 0xb9400000u) return true;  // unsigned-offset LDR W/X
++  if ((w & 0x3f800000u) == 0x11000000u) return rn != 31;  // ADD/SUB imm, no flags
++  if ((w & 0x3fe00000u) == 0x0b000000u)                 // ADD/SUB LSL
++    return (w >> 31) || !(w & (1u << 15));
++  if ((w & 0x1f200000u) == 0x0a000000u && ((w >> 29) & 3) != 3)
++    return (w >> 31) || !(w & (1u << 15));  // AND/ORR/EOR shifted
++  return false;
++}
++
+ void Finalize(LiteTranslator* translator, GuestAddr pc) {
+   translator->ExitRegion(pc);
+   translator->EmitRecoveryExits();
+@@ -73,6 +91,7 @@ PassResult TranslatePass(GuestAddr start_pc,
+     translator.EmitLoopHead(*loop_entry);
+   }
+ 
++  bool used_leaf = false;
+   while (translator.GetInsnAddr() < params.end_pc && !translator.is_region_end_reached()) {
+     // No early termination on register pressure: the allocator reserves a
+     // fixed block of temp registers (Allocator::kReservedTempRegs) that
+@@ -85,6 +104,33 @@ PassResult TranslatePass(GuestAddr start_pc,
+     // Do not skip the final SUBS: the ordinary decoder handles its value and
+     // flags. If translation stops before it, the clamped retry cannot fuse.
+     const GuestAddr pc = translator.GetInsnAddr();
++    if (!used_leaf && params.allow_dispatch && !params.enable_self_profiling &&
++        params.end_pc-pc >= 4) {
++      uint32_t w = *ToHostAddr<const uint32_t>(pc);
++      if ((w >> 26) == 0x25u) {  // BL imm26, signed word displacement
++        int64_t imm = int32_t((w & 0x03ffffffu) ^ 0x02000000u) - 0x02000000;
++        GuestAddr target=pc + imm*4;
++        const auto r=leaves[LeafSlot(target)];
++        if (r.count && r.pc == target) {
++          translator.SetReg(30, translator.GetImm(pc+4));
++          if (!translator.success()) return {false,pc,false,{}};
++          translator.FreeTempRegs();
++          translator.BeginGuardedLeaf(r);
++          for (unsigned i=0; i<r.count; ++i) {
++            translator.SetLeafPc(target+4*i);
++            decoder.Decode(reinterpret_cast<const uint16_t*>(&r.words[i]));
++            if (!translator.success()) return {false,pc,false,{}};
++            translator.FreeTempRegs();
++          }
++          // The whitelisted leaf cannot change LR. Keep the architectural
++          // return-boundary signal poll, and resume decoding in the caller.
++          translator.SetLeafPc(pc+4);
++          translator.LeafReturnPoll(pc+4);
++          used_leaf=true;
++          continue;
++        }
++      }
++    }
+     if (params.end_pc - pc >= 12 && (pc & 4095) <= 4084) {
+       const auto* words = ToHostAddr<const uint32_t>(pc);
+       const uint32_t cmp = words[0];
+@@ -133,6 +179,22 @@ PassResult TranslatePass(GuestAddr start_pc,
+ 
+ }  // namespace
+ 
++Arm64LeafRecipe CaptureArm64Leaf(GuestAddr pc, GuestAddr end) {
++  Arm64LeafRecipe r{};
++  for (unsigned i = 0; i <= Arm64LeafRecipe::kMax; ++i) {
++    const unsigned span = 4 * (i + 1);
++    if (end - pc < span || (pc & 4095) + span > 4096) break;
++    uint32_t w = *ToHostAddr<const uint32_t>(pc + 4*i);
++    if (w == 0xd65f03c0u && i) { r.pc=pc; r.count=i; return r; }
++    if (i == Arm64LeafRecipe::kMax || !LeafWord(w)) break;
++    r.words[i]=w;
++  }
++  return {};
++}
++void RememberArm64Leaf(Arm64LeafRecipe r, uintptr_t slot, uint32_t host_entry) {
++  r.slot=slot; r.expected=host_entry; leaves[LeafSlot(r.pc)]=r;
++}
++
+ // Returns the success status and
+ // - in case of success, the pc of the next instruction past the translated region
+ // - in case of failure, the pc of the failed instruction
+diff --git a/lite_translator/arm64_to_x86_64/lite_translator.h b/lite_translator/arm64_to_x86_64/lite_translator.h
+index 87f6bc7f45da5856e73a72751838b8b2bf57c4e8..1b237b9fab480be2554bfcdbdcf1cb1a7fd7e5a3 100644
+--- a/lite_translator/arm64_to_x86_64/lite_translator.h
++++ b/lite_translator/arm64_to_x86_64/lite_translator.h
+@@ -76,6 +76,31 @@ class LiteTranslator {
+ 
+   GuestAddr GetInsnAddr() const { return pc_; }
+ 
++  void SetLeafPc(GuestAddr pc) { pc_=pc; }
++  void BeginGuardedLeaf(const Arm64LeafRecipe& r) {
++    auto* slow=as_.MakeLabel();
++    auto* body=as_.MakeLabel();
++    as_.Cmpb({.base=Assembler::rbp,.disp=offsetof(ThreadState,pending_signals_status)},
++             kPendingSignalsPresent);
++    as_.Jcc(Condition::kEqual,*slow);
++    // RAX is reserved, never a mapped guest register. The slot remains
++    // stable; invalidation/gear change/wrapping replaces its 32-bit value.
++    as_.Movq(as_.rax,r.slot);
++    as_.Cmpl({.base=as_.rax},static_cast<int32_t>(r.expected));
++    as_.Jcc(Condition::kEqual,*body);
++    as_.Bind(slow);
++    ExitRegion(r.pc);
++    as_.Bind(body);
++  }
++  void LeafReturnPoll(GuestAddr pc) {
++    auto* cont=as_.MakeLabel();
++    as_.Cmpb({.base=Assembler::rbp,.disp=offsetof(ThreadState,pending_signals_status)},
++             kPendingSignalsPresent);
++    as_.Jcc(Condition::kNotEqual,*cont);
++    ExitRegion(pc);
++    as_.Bind(cont);
++  }
++
+   void IncrementInsnAddr(uint8_t insn_size) { pc_ += insn_size; }
+ 
+   Register GetReg(uint8_t reg) {
+diff --git a/lite_translator/include/berberis/lite_translator/lite_translate_region.h b/lite_translator/include/berberis/lite_translator/lite_translate_region.h
+index 39421375c81611e73c0d11f141b16e543348cb2d..0177f113de4577b2d041da22a06b9b00c3db8210 100644
+--- a/lite_translator/include/berberis/lite_translator/lite_translate_region.h
++++ b/lite_translator/include/berberis/lite_translator/lite_translate_region.h
+@@ -27,6 +27,18 @@
+ 
+ namespace berberis {
+ 
++// Bounded, translator-thread-local hint; never holds a GuestCodeEntry pointer.
++struct Arm64LeafRecipe {
++  static constexpr unsigned kMax = 8;
++  GuestAddr pc{};
++  uintptr_t slot{};
++  uint32_t expected{};
++  unsigned count{};
++  uint32_t words[kMax]{};
++};
++Arm64LeafRecipe CaptureArm64Leaf(GuestAddr pc, GuestAddr end);
++void RememberArm64Leaf(Arm64LeafRecipe recipe, uintptr_t slot, uint32_t host_entry);
++
+ struct LiteTranslateParams {
+   GuestAddr end_pc = GetGuestAddrRangeEnd();
+   bool allow_dispatch = true;
+diff --git a/runtime/arm64/translator_x86_64.cc b/runtime/arm64/translator_x86_64.cc
+index b506f68fb91a61d4338911475436931ed5c57e16..1ee4c62ee858b22807238450a85d7af21ee2354f 100644
+--- a/runtime/arm64/translator_x86_64.cc
++++ b/runtime/arm64/translator_x86_64.cc
+@@ -135,6 +135,12 @@ std::tuple<bool, HostCodePiece, size_t, GuestCodeEntry::Kind> TryLiteTranslateAn
+   if (IsConfigFlagSet(kDisableRegMap)) {
+     params.enable_reg_mapping = false;
+   }
++  // Learn only normal settled Lite entries. Do not skip first-gear hit
++  // counters. A speculative recipe is usable only after its exact host entry
++  // appears in the callee slot (not after a failed/invalidation-raced install).
++  Arm64LeafRecipe leaf{};
++  if (!params.enable_self_profiling && params.allow_dispatch)
++    leaf = CaptureArm64Leaf(pc, params.end_pc);
+   auto [success, stop_pc] = TryLiteTranslateRegion(pc, &machine_code, params);
+ 
+   size_t size = stop_pc - pc;
+@@ -149,6 +155,10 @@ std::tuple<bool, HostCodePiece, size_t, GuestCodeEntry::Kind> TryLiteTranslateAn
+     if (piece.code == kNullHostCodeAddr) {
+       return {false, {}, 0, {}};
+     }
++    if (leaf.count && size == (leaf.count+1)*4u) {
++      auto slot=TranslationCache::GetInstance()->GetHostCodePtr(pc);
++      RememberArm64Leaf(leaf,reinterpret_cast<uintptr_t>(slot),piece.code);
++    }
+     return {true, piece, size, kLiteTranslated};
+     // endregion
+   }

@@ -1,6 +1,0 @@
-thread,intervals,p50_us,p95_us,p99_us,max_us
-UnityMain,814,2,36,52,155
-UnityGfxDeviceW,11827,2,12,34,585
-RenderEngine,9389,2,3,15,112
-SurfaceFlinger,1541,2,5,12,49
-HWC main,1865,2,3,21,189

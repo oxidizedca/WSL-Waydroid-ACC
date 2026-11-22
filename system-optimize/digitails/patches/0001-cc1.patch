@@ -1,0 +1,60 @@
+diff --git a/lite_translator/arm64_to_x86_64/lite_translate_region.cc b/lite_translator/arm64_to_x86_64/lite_translate_region.cc
+index 8f2cc804..de2c117f 100644
+--- a/lite_translator/arm64_to_x86_64/lite_translate_region.cc
++++ b/lite_translator/arm64_to_x86_64/lite_translate_region.cc
+@@ -81,6 +81,28 @@ PassResult TranslatePass(GuestAddr start_pc,
+     // and translation continues to the region's natural end. Ending the region
+     // here instead would split hot straight-line code (function prologues are
+     // the worst case) into fragments too small for the heavy tier to gear up.
++    // Stay inside both the supplied code range and the current 4K page.
++    // Do not skip the final SUBS: the ordinary decoder handles its value and
++    // flags. If translation stops before it, the clamped retry cannot fuse.
++    const GuestAddr pc = translator.GetInsnAddr();
++    if (params.end_pc - pc >= 12 && (pc & 4095) <= 4084) {
++      const auto* words = ToHostAddr<const uint32_t>(pc);
++      const uint32_t cmp = words[0];
++      if ((cmp & 0xffe0fc1fu) == 0x6b00001fu) {
++        const uint32_t br = words[1], sub = words[2];
++        const unsigned rn = (cmp >> 5) & 31, rm = (cmp >> 16) & 31;
++        const unsigned disp = (br >> 5) & 0x7ffff;
++        if ((br & 0xff00001cu) == 0x54000000u && disp > 0 && disp < 0x40000 &&
++            (sub & 0x7f800000u) == 0x71000000u && rn != 31 && rm != 31 &&
++            (sub & 31) != 31 && ((sub >> 5) & 31) != 31) {
++          translator.EmitCmpBranchBeforeSubs(rn, rm, br & 3, pc + 4 + 4 * disp);
++          if (!translator.success()) return {false, pc, false, {}};
++          translator.FreeTempRegs();
++          translator.IncrementInsnAddr(8);
++          continue;
++        }
++      }
++    }
+     uint8_t insn_size = decoder.Decode(ToHostAddr<const uint16_t>(translator.GetInsnAddr()));
+     if (!translator.success()) {
+       // JIT break profiling
+diff --git a/lite_translator/arm64_to_x86_64/lite_translator.h b/lite_translator/arm64_to_x86_64/lite_translator.h
+index 38d4e79a..87f6bc7f 100644
+--- a/lite_translator/arm64_to_x86_64/lite_translator.h
++++ b/lite_translator/arm64_to_x86_64/lite_translator.h
+@@ -219,6 +219,22 @@ class LiteTranslator {
+   [[nodiscard]] bool success() const { return success_; }
+   bool is_region_end_reached() const { return is_region_end_reached_; }
+ 
++  // CMP Wn,Wm; B.{EQ,NE,CS,CC} forward; SUBS immediate. No faulting guest
++  // operation or dispatch on the fall-through before SUBS replaces all NZCV.
++  void EmitCmpBranchBeforeSubs(unsigned rn, unsigned rm, unsigned cond, GuestAddr target) {
++    auto lhs = GetReg(rn);
++    auto rhs = GetReg(rm);
++    if (!success()) return;
++    constexpr Condition not_taken[] = {Condition::kNotEqual, Condition::kEqual,
++                                      Condition::kCarry, Condition::kNotCarry};
++    auto* cont = as_.MakeLabel();
++    as_.Cmpl(lhs, rhs);
++    as_.Jcc(not_taken[cond], *cont);
++    EmitStoreArmNZCV(true);  // taken target observes original CMP flags
++    ExitRegion(target);
++    as_.Bind(cont);
++  }
++
+   void FreeTempRegs() {
+     gp_allocator_.FreeTemps();
+     simd_allocator_.FreeTemps();

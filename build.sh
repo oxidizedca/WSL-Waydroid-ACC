@@ -5,7 +5,11 @@ root=$(cd -P "$(dirname "$0")" && pwd)
 case ${1:-} in ''|--offscreen) ;; *) echo "Usage: bash build.sh [--offscreen]" >&2; exit 2;; esac
 tag=$(printf '%s' "$root" | sha256sum | cut -c1-12)
 work=${ACC_WORK:-${XDG_CACHE_HOME:-$HOME/.cache}/wsl-waydroid-acc/$tag}
-out="$root/out"
+out="$root/out/build"
+if [[ ${1:-} == --offscreen && ! -r $root/out/validation/check.c ]]; then
+    echo 'Offscreen verification requires the local out/validation/check.c probe; use bash build.sh for a normal source build.' >&2
+    exit 2
+fi
 mkdir -p "$work" "$out"
 exec 8>"$work/build.lock"; flock 8
 sdk=${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-}}
@@ -148,7 +152,7 @@ png_vendor=$(mktemp -d "$work/.png.XXXXXXXX")
 )
 (cd "$out" && sha256sum lib*so* wayland-backend.so gl-renderer.so hwcomposer.waydroid.so texture-consumer input-broker virtual-touch waydroid-acc-png > SHA256SUMS)
 if [[ ${1:-} == --offscreen ]]; then
-    cc -O2 -I"$src" "$root/validation/check.c" -L"$root/host/egl" -l:libEGL.so.1 -ldl -o "$work/check"
+    cc -O2 -I"$src" "$root/out/validation/check.c" -L"$root/host/egl" -l:libEGL.so.1 -ldl -o "$work/check"
     ln -sfn "$out/$gallium" "$work/d3d12_dri.so"
     LD_PRELOAD="$out/$gallium" LD_LIBRARY_PATH="$root/host/egl:/usr/lib/wsl/lib" GALLIUM_DRIVER=d3d12 \
         MESA_LOADER_DRIVER_OVERRIDE=d3d12 LIBGL_DRIVERS_PATH="$work" "$work/check"

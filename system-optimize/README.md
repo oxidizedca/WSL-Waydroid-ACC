@@ -6,13 +6,13 @@
 
 ## 独立 overlay 部署（非 KernelSU）
 
-[Digitalis ARM64 转译层：构建包、部署与恢复](digitails/README.md)。适用于项目验证过的 Android 16 QPR2 x86_64 Waydroid，不随图形加速层或下列模块部署。
+Digitalis ARM64 转译层：[补丁说明](digitails/README.md) · [部署与恢复](../deploy/README.md)。适用于项目验证过的 Android 16 QPR2 x86_64 Waydroid，不随图形加速层或下列模块部署。
 
 ## 现有模块
 
 | 模块 | 用途与验证状态 | 文件 |
 | --- | --- | --- |
-| SurfaceFlinger 按需编译着色器（0.1 alpha） | 当前 1080p 镜像上，设置和计算器切换后 SF 的 PSS 少约 168 MiB。首次转场 P99 可能变慢；没有关闭应用自己的着色器编译。 | [模块源码](modules/sf-demand-shaders/) · [KernelSU 安装包](dist/waydroid-acc-sf-demand-shaders-0.1.zip) · [对照结果和原始数据](results/sf-prime/README.md) |
+| SurfaceFlinger 按需编译着色器（0.1 alpha） | 当前 1080p 镜像上，设置和计算器切换后 SF 的 PSS 少约 168 MiB。首次转场 P99 可能变慢；没有关闭应用自己的着色器编译。 | [模块源码](modules/sf-demand-shaders/) · [KernelSU 安装包](dist/waydroid-acc-sf-demand-shaders-0.1.zip) |
 
 SurfaceFlinger 模块只设一个非持久属性：`service.sf.prime_shader_cache=false`。不替换系统文件，不需要挂载模块，也不会在启动后强制重启 SurfaceFlinger。已用 KernelSU 3.3.1 在 Waydroid x86_64、Android 16 上验证启用与禁用。安装时会校验设备、SDK 和实测 SurfaceFlinger 的 SHA-256；镜像升级前请先禁用，避免绕过仅在安装时执行的版本检查。
 
@@ -32,13 +32,9 @@ mkdir -p dist
 python3 -m zipfile -t dist/waydroid-acc-sf-demand-shaders-0.1.zip
 ```
 
-源码在 `modules/`，可安装产物在 `dist/`，单项分析和验证数据在 `results/`。仅有采样结果的方向不列为可用模块。
+源码在 `modules/`，可安装产物在 `dist/`，单项分析和验证数据仅在本地 `out/system-optimize/results/`。仅有采样结果的方向不列为可用模块。
 
-## 未打包的方向
-
-[游戏全屏图层与静态缓存：采样和不启用原因](results/fullscreen-composition/README.md)。
-
-[CPU/GPU 调度：前台线程等待与 WSL GPU 队列能力](results/scheduling/README.md)。
+未发布模块的调查统一记录在[未实现方向](../docs/UNFINISHED.md)。
 
 ---
 
@@ -50,13 +46,13 @@ This directory contains Android system components that can be installed independ
 
 ## Standalone overlay deployment (not KernelSU)
 
-[Digitalis ARM64 translation: archive, installation and restore](digitails/README.md#english). This targets the project's tested Android 16 QPR2 x86_64 Waydroid image and is not deployed with the graphics layer or the modules below.
+Digitalis ARM64 translation: [patch notes](digitails/README.md#english) · [deployment and restore](../deploy/README.md#english). This targets the project's tested Android 16 QPR2 x86_64 Waydroid image and is not deployed with the graphics layer or the modules below.
 
 ## Available modules
 
 | Module | Purpose and validation | File |
 | --- | --- | --- |
-| SurfaceFlinger on-demand shaders (0.1 alpha) | SF PSS was about 168 MiB lower after switching between Settings and Calculator on this 1080p image. First-transition P99 can worsen. Application shader compilation remains enabled. | [Module sources](modules/sf-demand-shaders/) · [KernelSU ZIP](dist/waydroid-acc-sf-demand-shaders-0.1.zip) · [Results and raw data](results/sf-prime/README.md#english) |
+| SurfaceFlinger on-demand shaders (0.1 alpha) | SF PSS was about 168 MiB lower after switching between Settings and Calculator on this 1080p image. First-transition P99 can worsen. Application shader compilation remains enabled. | [Module sources](modules/sf-demand-shaders/) · [KernelSU ZIP](dist/waydroid-acc-sf-demand-shaders-0.1.zip) |
 
 The SurfaceFlinger module sets one non-persistent property: `service.sf.prime_shader_cache=false`. It does not replace system files, require a module mount, or force a SurfaceFlinger restart after boot. Enabling and disabling it were verified with KernelSU 3.3.1 on Waydroid x86_64, Android 16. Installation checks the device, SDK and SHA-256 of the tested SurfaceFlinger binary. Disable the module before updating the image: the version checks run only at installation.
 
@@ -76,10 +72,6 @@ mkdir -p dist
 python3 -m zipfile -t dist/waydroid-acc-sf-demand-shaders-0.1.zip
 ```
 
-Source is in `modules/`, installable artifacts in `dist/`, and individual analyses and validation data in `results/`. Investigations supported only by measurements are not listed as available modules.
+Source is in `modules/`, installable artifacts in `dist/`, and raw analyses and validation data only in the local `out/system-optimize/results/` directory. Investigations supported only by measurements are not listed as available modules.
 
-## Investigations not packaged as modules
-
-[Fullscreen layers and static caching: evidence and why caching is not enabled](results/fullscreen-composition/README.md#english).
-
-[CPU/GPU scheduling: foreground waits and WSL GPU queue capabilities](results/scheduling/README.md#english).
+Investigations without a released module are indexed in [Unfinished work](../docs/UNFINISHED.md#english).

@@ -1,4 +1,0 @@
-mode,before_surface_destroy,after_surface_destroy
-separate-surface,1 1 0,1 1 1
-reuse-anchor,1 1 0,1 1 1
-replace-visible,1 1 1,1 1 1

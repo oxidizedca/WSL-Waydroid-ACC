@@ -27,3 +27,10 @@ system-optimize/modules/**/*.prop text eol=lf
 licenses/** -text
 system-optimize/digitails/THIRD-PARTY-NOTICES.txt -text
 system-optimize/digitails/NOTICE-MAP.tsv text eol=lf
+system-optimize/digitails/patches/*.patch text eol=lf
+
+# Keep inputs to the reproducible runtime archive identical on Windows checkouts.
+/LICENSE text eol=lf
+/THIRD_PARTY_NOTICES.md text eol=lf
+/vendor/libdeflate-COPYING -text
+/services/weston.ini text eol=lf

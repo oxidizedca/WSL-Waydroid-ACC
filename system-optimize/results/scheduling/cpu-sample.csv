@@ -1,5 +1,0 @@
-process,thread,wall_s,cpu_ms,runnable_wait_ms,allowed,nice,policy,rt_priority
-com.hypergryph.arknights,UnityMain,12.0707,1889.909,0.944,0-15,0,OTHER,0
-com.hypergryph.arknights,UnityGfxDeviceW,12.0707,1029.73,10.626,0-15,-2,OTHER,0
-surfaceflinger,RenderEngine,12.0707,590.009,2.057,0-15,-8,FIFO,2
-surfaceflinger,surfaceflinger,12.0707,261.049,0.358,0-15,-8,FIFO,2

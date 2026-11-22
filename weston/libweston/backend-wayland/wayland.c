@@ -1,6 +1,6 @@
 /*
- * Copyright © 2010-2011 Benjamin Franzke
- * Copyright © 2013 Jason Ekstrand
+ * Copyright 漏 2010-2011 Benjamin Franzke
+ * Copyright 漏 2013 Jason Ekstrand
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -218,6 +218,16 @@ struct wayland_input {
 	} parent;
 
 	struct weston_touch_device *touch_device;
+	/* Touch mode exposes no child pointer for the parent mouse. */
+	bool mouse_touch, mouse_down;
+	struct weston_touch_device *mouse_device;
+	struct weston_coord_global mouse_pos;
+	double mouse_x, mouse_y; /* last pointer position in mapped output coordinates */
+	struct {
+		bool armed, active;
+		double start_x, start_y;
+		int width, height;
+	} pinch;
 
 	enum weston_key_state_update keyboard_state_update;
 	uint32_t key_serial;
@@ -682,6 +692,107 @@ wayland_output_destroy_shm_buffers(struct wayland_output *output)
 	}
 }
 
+/* The button position is only the drag origin. The reflection always uses
+ * Android content bounds, independent of window borders and letterboxing. */
+static void
+mouse_pinch_arm(struct wayland_input *in)
+{
+	struct weston_mode *mode = in->output->base.current_mode;
+	if (!mode)
+		return;
+	in->pinch.width = mode->width;
+	in->pinch.height = mode->height;
+	in->pinch.start_x = in->mouse_x;
+	in->pinch.start_y = in->mouse_y;
+	in->pinch.armed = true;
+}
+
+static void
+mouse_pinch_emit(struct wayland_input *in, const struct timespec *ts,
+		uint32_t type, double x, double y)
+{
+	double xmax = in->pinch.width - 1., ymax = in->pinch.height - 1.;
+	x = MAX(0., MIN(xmax, x));
+	y = MAX(0., MIN(ymax, y));
+	for (int id = 0; id < 2; id++) {
+		struct weston_coord_global pos = weston_coord_global_from_output_point(
+			id ? xmax - x : x, id ? ymax - y : y, &in->output->base);
+		notify_touch(in->mouse_device, ts, id, &pos, type);
+	}
+	notify_touch_frame(in->mouse_device);
+}
+
+static void
+mouse_pinch_end(struct wayland_input *in)
+{
+	in->pinch.armed = false;
+	if (!in->pinch.active)
+		return;
+	struct weston_touch *touch = in->mouse_device->aggregate;
+	struct wl_resource *resource;
+
+	struct timespec ts;
+	in->pinch.active = false;
+	/* This zoom has already delivered its scale through MOTION. In the
+	 * default grab end the synthetic stream with wl_touch.cancel, not two
+	 * tap-eligible UPs. Weston 14's default grab cancel is a no-op.
+	 * Only cancel when we own the entire stream: cancel is per client,
+	 * not per contact. Leave other grabs' release semantics alone. */
+	if (!in->touch_active && touch->num_tp == 2 &&
+	    touch->grab == &touch->default_grab) {
+		wl_resource_for_each(resource, &touch->focus_resource_list)
+			wl_touch_send_cancel(resource);
+		weston_touch_set_focus(touch, NULL);
+	}
+	/* Balance the two Weston downs and idle inhibits even after cancel.
+	 * With no focused resources these UPs do not reach the client. */
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	for (int id = 0; id < 2; id++)
+		notify_touch(in->mouse_device, &ts, id, NULL, WL_TOUCH_UP);
+	notify_touch_frame(in->mouse_device);
+}
+
+static void
+mouse_pinch_drag(struct wayland_input *in, const struct timespec *ts)
+{
+	struct weston_mode *mode = in->output->base.current_mode;
+	if (!mode || mode->width != in->pinch.width || mode->height != in->pinch.height) {
+		mouse_pinch_end(in);
+		return;
+	}
+	if (!in->pinch.active) {
+		double x = in->pinch.start_x, y = in->pinch.start_y;
+		double dx = in->mouse_x - x, dy = in->mouse_y - y;
+		if (dx * dx + dy * dy < 16.)
+			return; /* Ctrl-click and hand jitter do not land fingers. */
+		in->pinch.active = true;
+		dx = x - (mode->width - 1.) * .5;
+		dy = y - (mode->height - 1.) * .5;
+		if (dx * dx + dy * dy < 4.) {
+			/* A center press would land the two fingers on each other.
+			 * Use the first real drag position as the initial span. */
+			mouse_pinch_emit(in, ts, WL_TOUCH_DOWN, in->mouse_x, in->mouse_y);
+			return;
+		}
+		mouse_pinch_emit(in, ts, WL_TOUCH_DOWN, x, y);
+	}
+	mouse_pinch_emit(in, ts, WL_TOUCH_MOTION, in->mouse_x, in->mouse_y);
+}
+
+static void
+mouse_touch_up(struct wayland_input *input)
+{
+	struct timespec ts;
+
+	mouse_pinch_end(input);
+	if (!input->mouse_down)
+		return;
+	input->mouse_down = false;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	notify_touch(input->mouse_device, &ts, 0, NULL, WL_TOUCH_UP);
+	notify_touch_frame(input->mouse_device);
+}
+
 static int
 wayland_output_disable(struct weston_output *base)
 {
@@ -692,6 +803,15 @@ wayland_output_disable(struct weston_output *base)
 
 	if (!output->base.enabled)
 		return 0;
+
+	struct wayland_input *input;
+	wl_list_for_each(input, &output->backend->input_list, link) {
+		if (input->mouse_touch && input->output == output) {
+			mouse_touch_up(input);
+			input->output = NULL;
+			input->has_focus = false;
+		}
+	}
 
 	wayland_output_destroy_shm_buffers(output);
 
@@ -1730,6 +1850,7 @@ input_handle_pointer_enter(void *data, struct wl_pointer *pointer,
 	double x, y;
 	struct weston_coord_global pos;
 
+	mouse_touch_up(input);
 	if (!surface) {
 		input->output = NULL;
 		input->has_focus = false;
@@ -1764,6 +1885,15 @@ input_handle_pointer_enter(void *data, struct wl_pointer *pointer,
 	pos = weston_coord_global_from_output_point(x, y,
 						    &input->output->base);
 
+	if (input->mouse_touch) {
+		input->mouse_pos = pos;
+		input->mouse_x = x;
+		input->mouse_y = y;
+		input->has_focus = location == THEME_LOCATION_CLIENT_AREA;
+		input_set_cursor(input); /* Visible parent cursor, no Android hover. */
+		return;
+	}
+
 	if (location == THEME_LOCATION_CLIENT_AREA) {
 		input->has_focus = true;
 		notify_pointer_focus(&input->base, &input->output->base, pos);
@@ -1785,6 +1915,7 @@ input_handle_pointer_leave(void *data, struct wl_pointer *pointer,
 	if (!input->output)
 		return;
 
+	mouse_touch_up(input);
 	if (input->output->frame) {
 		frame_pointer_leave(input->output->frame, input);
 
@@ -1833,6 +1964,26 @@ input_handle_motion(void *data, struct wl_pointer *pointer,
 
 	pos = weston_coord_global_from_output_point(x, y,
 						    &input->output->base);
+
+	if (input->mouse_touch) {
+		input->has_focus = location == THEME_LOCATION_CLIENT_AREA;
+		if (!input->has_focus) {
+			mouse_touch_up(input);
+			return;
+		}
+		input->mouse_pos = pos;
+		input->mouse_x = x;
+		input->mouse_y = y;
+		if (input->pinch.armed) {
+			timespec_from_msec(&ts, time);
+			mouse_pinch_drag(input, &ts);
+		} else if (input->mouse_down) {
+			timespec_from_msec(&ts, time);
+			notify_touch(input->mouse_device, &ts, 0, &pos, WL_TOUCH_MOTION);
+			notify_touch_frame(input->mouse_device);
+		}
+		return;
+	}
 
 	if (input->has_focus && location != THEME_LOCATION_CLIENT_AREA) {
 		input_set_cursor(input);
@@ -1907,6 +2058,26 @@ input_handle_button(void *data, struct wl_pointer *pointer,
 		location = THEME_LOCATION_CLIENT_AREA;
 	}
 
+	if (input->mouse_touch) {
+		if (button != BTN_LEFT || !input->mouse_device)
+			return;
+		if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
+			mouse_touch_up(input);
+		} else if (!input->mouse_down && !input->pinch.armed && !input->touch_active &&
+			   location == THEME_LOCATION_CLIENT_AREA && input->has_focus) {
+			if (input->keyboard_focus == input->output && input->parent.keyboard &&
+			    (input->base.modifier_state & MODIFIER_CTRL)) {
+				mouse_pinch_arm(input);
+				return;
+			}
+			input->mouse_down = true;
+			timespec_from_msec(&ts, time);
+			notify_touch(input->mouse_device, &ts, 0, &input->mouse_pos, WL_TOUCH_DOWN);
+			notify_touch_frame(input->mouse_device);
+		}
+		return;
+	}
+
 	if (input->output->policy != ACC_FREE &&
 	    button >= BTN_MOUSE && button < BTN_MOUSE + 32) {
 		uint32_t bit = 1u << (button - BTN_MOUSE);
@@ -1937,6 +2108,9 @@ input_handle_axis(void *data, struct wl_pointer *pointer,
 	struct weston_pointer_axis_event weston_event;
 	struct timespec ts;
 
+	if (input->mouse_touch)
+		return;
+
 	weston_event.axis = axis;
 	weston_event.value = wl_fixed_to_double(value);
 	weston_event.has_discrete = false;
@@ -1966,6 +2140,9 @@ input_handle_frame(void *data, struct wl_pointer *pointer)
 {
 	struct wayland_input *input = data;
 
+	if (input->mouse_touch)
+		return;
+
 	notify_pointer_frame(&input->base);
 }
 
@@ -1974,6 +2151,9 @@ input_handle_axis_source(void *data, struct wl_pointer *pointer,
 			 uint32_t source)
 {
 	struct wayland_input *input = data;
+
+	if (input->mouse_touch)
+		return;
 
 	notify_axis_source(&input->base, source);
 }
@@ -1985,6 +2165,9 @@ input_handle_axis_stop(void *data, struct wl_pointer *pointer,
 	struct wayland_input *input = data;
 	struct weston_pointer_axis_event weston_event;
 	struct timespec ts;
+
+	if (input->mouse_touch)
+		return;
 
 	weston_event.axis = axis;
 	weston_event.value = 0;
@@ -1999,6 +2182,9 @@ input_handle_axis_discrete(void *data, struct wl_pointer *pointer,
 			   uint32_t axis, int32_t discrete)
 {
 	struct wayland_input *input = data;
+
+	if (input->mouse_touch)
+		return;
 
 	if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
 		input->vert.has_discrete = true;
@@ -2129,6 +2315,7 @@ input_handle_keyboard_leave(void *data,
 	struct wayland_input *input = data;
 	struct wayland_output *focus;
 
+	mouse_touch_up(input);
 	notify_keyboard_focus_out(&input->base);
 
 	focus = input->keyboard_focus;
@@ -2162,6 +2349,8 @@ input_handle_key(void *data, struct wl_keyboard *keyboard,
 		   state ? WL_KEYBOARD_KEY_STATE_PRESSED :
 			   WL_KEYBOARD_KEY_STATE_RELEASED,
 		   input->keyboard_state_update);
+	if (input->pinch.armed && !(input->base.modifier_state & MODIFIER_CTRL))
+		mouse_pinch_end(input);
 }
 
 static void
@@ -2188,6 +2377,8 @@ input_handle_modifiers(void *data, struct wl_keyboard *wl_keyboard,
 			      mods_depressed, mods_latched,
 			      mods_locked, 0, 0, group);
 	notify_modifiers(&input->base, serial_out);
+	if (input->pinch.armed && !(input->base.modifier_state & MODIFIER_CTRL))
+		mouse_pinch_end(input);
 }
 
 static void
@@ -2230,6 +2421,8 @@ input_handle_touch_down(void *data, struct wl_touch *wl_touch,
 
 	timespec_from_msec(&ts, time);
 
+	/* A real contact takes precedence; never overlap with synthetic id 0. */
+	mouse_touch_up(input);
 	first_touch = (input->touch_points == 0);
 	input->touch_points++;
 
@@ -2417,14 +2610,36 @@ input_update_capabilities(struct wayland_input *input, enum wl_seat_capability c
 		wl_pointer_set_user_data(input->parent.pointer, input);
 		wl_pointer_add_listener(input->parent.pointer,
 					&pointer_listener, input);
-		weston_seat_init_pointer(&input->base);
+		if (input->mouse_touch) {
+			if (weston_seat_init_touch(&input->base) == 0) {
+				input->mouse_device = weston_touch_create_touch_device(
+				    input->base.touch_state, "wayland-mouse-as-touch", NULL, NULL);
+				if (!input->mouse_device)
+					weston_seat_release_touch(&input->base);
+			}
+			if (!input->mouse_device)
+				weston_log("Could not create mouse-as-touch device\n");
+		} else {
+			weston_seat_init_pointer(&input->base);
+		}
 	} else if (!(caps & WL_SEAT_CAPABILITY_POINTER) && input->parent.pointer) {
 		if (input->seat_version >= WL_POINTER_RELEASE_SINCE_VERSION)
 			wl_pointer_release(input->parent.pointer);
 		else
 			wl_pointer_destroy(input->parent.pointer);
 		input->parent.pointer = NULL;
-		weston_seat_release_pointer(&input->base);
+		if (input->mouse_device) {
+			mouse_touch_up(input);
+			weston_touch_device_destroy(input->mouse_device);
+			input->mouse_device = NULL;
+			weston_seat_release_touch(&input->base);
+		}
+		if (!input->mouse_touch && weston_seat_get_pointer(&input->base))
+			weston_seat_release_pointer(&input->base);
+		if (input->mouse_touch) {
+			input->has_focus = false;
+			input->output = NULL;
+		}
 	}
 
 	if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !input->parent.keyboard) {
@@ -2438,6 +2653,7 @@ input_update_capabilities(struct wayland_input *input, enum wl_seat_capability c
 		else
 			wl_keyboard_destroy(input->parent.keyboard);
 		input->parent.keyboard = NULL;
+		mouse_pinch_end(input);
 		weston_seat_release_keyboard(&input->base);
 	}
 
@@ -2539,6 +2755,8 @@ display_start_add_seat(struct wayland_backend *b, uint32_t id, uint32_t availabl
 	input->parent.seat = wl_registry_bind(b->parent.registry, id,
 					      &wl_seat_interface, version);
 	input->seat_version = version;
+	const char *mode = getenv("ACC_MOUSE_MODE");
+	input->mouse_touch = mode && !strcmp(mode, "touch");
 
 	wl_seat_add_listener(input->parent.seat, &seat_listener, input);
 	wl_seat_set_user_data(input->parent.seat, input);
@@ -2555,6 +2773,9 @@ display_start_add_seat(struct wayland_backend *b, uint32_t id, uint32_t availabl
 static void
 wayland_input_destroy(struct wayland_input *input)
 {
+	mouse_touch_up(input);
+	if (input->mouse_device)
+		weston_touch_device_destroy(input->mouse_device);
 	if (input->touch_device)
 		weston_touch_device_destroy(input->touch_device);
 

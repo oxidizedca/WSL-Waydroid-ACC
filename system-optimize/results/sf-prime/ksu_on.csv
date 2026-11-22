@@ -1,3 +1,0 @@
-stage,pid,elapsed_s,pss_kib,private_dirty_kib,scudo_primary_dirty_kib,scudo_secondary_dirty_kib,re_tracked,import_count,import_logical_kib,container_working_kib
-cold_home,297,0.0,96242,79180,22924,28612,18,18,87576,2421684
-home_after_apps,297,10.9,98527,82120,25860,28612,19,19,95747,2603596

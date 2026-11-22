@@ -3,23 +3,28 @@
 set -eu
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 usage() {
-    printf '%s\n' 'Usage: waydroid-acc-start [-w fix|ratio] [-r WIDTHxHEIGHT]' \
-        'Default: resizable window, 1920x1080. fix: fixed window; ratio: fit without stretching.'
+    printf '%s\n' 'Usage: waydroid-acc-start [-w fix|ratio] [-r WIDTHxHEIGHT] [-m pointer|touch]' \
+        '  -m, --mouse pointer|touch  Mouse input mode (default: pointer).' \
+        'Default: native pointer, resizable window, 1920x1080. fix: fixed window; ratio: fit without stretching.'
 }
 bad_arg() { echo "Invalid argument: $1" >&2; usage >&2; exit 2; }
 mode=free
+mouse=pointer
 resolution=1920x1080
 while (($#)); do
     case "$1" in
         -h|--help) usage; exit 0 ;;
         -w|--weston) (($# >= 2)) || bad_arg "$1"; mode=$2; shift ;;
         --weston=*) mode=${1#*=} ;;
+        -m|--mouse) (($# >= 2)) || bad_arg "$1"; mouse=$2; shift ;;
+        --mouse=*) mouse=${1#*=} ;;
         -r|--resolution) (($# >= 2)) || bad_arg "$1"; resolution=$2; shift ;;
         --resolution=*) resolution=${1#*=} ;;
         *) bad_arg "$1" ;;
     esac
     shift
 done
+case $mouse in pointer|touch) ;; *) bad_arg "$mouse" ;; esac
 case $mode in free|fix|ratio) ;; *) bad_arg "$mode" ;; esac
 [[ $resolution =~ ^([1-9][0-9]{0,3})[xX]([1-9][0-9]{0,3})$ ]] || bad_arg "$resolution"
 width=${BASH_REMATCH[1]} height=${BASH_REMATCH[2]}
@@ -68,14 +73,14 @@ start_adb_forward() {
     echo "      Windows ADB: 127.0.0.1:15555 -> $ip:5555"
 }
 # Use only the active release, including for installs without a source tree.
-if [[ $mode != free || $width != 1920 || $height != 1080 ]]; then
+if [[ $mouse != pointer || $mode != free || $width != 1920 || $height != 1080 ]]; then
     [[ -r /usr/local/lib/wsl-waydroid-acc/current/weston/wayland-backend.so ]] ||
         fail "Custom window settings require the built version. Deploy it with 'sudo bash deploy.sh built'."
 fi
 cfg=/run/waydroid-acc-window.env
 tmp=$(mktemp /run/.waydroid-acc-window.XXXXXXXX)
 trap 'rm -f -- "$tmp"' EXIT
-printf 'ACC_WINDOW_MODE=%s\nACC_WIDTH=%s\nACC_HEIGHT=%s\n' "$mode" "$width" "$height" > "$tmp"
+printf 'ACC_WINDOW_MODE=%s\nACC_WIDTH=%s\nACC_HEIGHT=%s\nACC_MOUSE_MODE=%s\n' "$mode" "$width" "$height" "$mouse" > "$tmp"
 chmod 644 "$tmp"
 
 # Close the client first; relaunch even when flags match so a previously
@@ -84,7 +89,7 @@ systemctl stop "$adb_unit.socket" "$adb_unit.service" 2>/dev/null || true
 systemctl stop waydroid-container.service
 mv -fT "$tmp" "$cfg"
 systemctl restart waydroid-acc-weston.service
-echo "[1/5] Nested Weston started (resolution: ${width}x${height}, mode: $mode)"
+echo "[1/5] Nested Weston started (resolution: ${width}x${height}, mode: $mode, mouse: $mouse)"
 echo "[2/5] Starting the Waydroid container"
 systemctl start waydroid-container
 sleep 4

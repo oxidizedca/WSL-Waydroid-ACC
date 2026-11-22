@@ -1,5 +1,0 @@
-version,stage,procs,mapped_unique_mib,mapped_exclusive_anon_mib,graphics_pss_anon_mib,working_mib,payload_anon_mib,swap_mib
-A,desktop,10,81.055,81.05,1236.2,2725.1,1852.2,0.0
-A,multi,12,97.266,97.27,1483.6,3254.6,2132.7,0.0
-B,desktop,10,3.508,0.0,1186.8,2686.1,1813.3,0.0
-B,multi,12,3.508,0.0,1411.3,3193.4,2069.3,0.0
